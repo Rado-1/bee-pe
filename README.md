@@ -1,19 +1,11 @@
 # bee.**pe**
 
-<table>
-<tr>
-<td> <img src="icon.png" width="128"> </td>
-<td>
-
-Experimental business process engine in TypeScript.
-
-</tr>
-</table>
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-:exclamation: :exclamation: :exclamation: **WARNING: This is still in the
-experimental phase, not intended to be used yet.**
+<img src="icon.png" width="64" align="left"> Experimental business process engine in TypeScript.
+
+**WARNING: This is still in the
+preliminary phase, not intended to be used yet.**
 
 ## Features
 
