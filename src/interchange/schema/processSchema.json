@@ -1,0 +1,376 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "rad.io schema for process files",
+  "$id": "http://rado1.com/radio/schemas/processSchema.json",
+
+  "definitions": {
+    "common": {
+      "properties": {
+        "name": {
+          "description": "Name of element.",
+          "type": "string"
+        },
+        "description": {
+          "description": "Textual description of element.",
+          "type": "string"
+        },
+        "expression": {
+          "description": "EXPRESSION Expression executed when element is activated.",
+          "type": "string",
+          "default": "!expr "
+        },
+        "meta": {
+          "description": "List of key-value pairs.",
+          "type": "array"
+        }
+      }
+    },
+
+    "is_interrupting": {
+      "properties": {
+        "is_interrupting": {
+          "description": "Is event interrupting?",
+          "type": "boolean"
+        }
+      }
+    },
+
+    "none": {
+      "type": "object",
+      "properties": {
+        "none": {
+          "description": "None event.",
+          "type": "object",
+          "properties": {
+            "name": {},
+            "description": {},
+            "expression": {},
+            "meta": {}
+          },
+          "default": "{}",
+          "additionalProperties": false,
+          "allOf": [{ "$ref": "#/definitions/common" }]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "terminate": {
+      "type": "object",
+      "properties": {
+        "terminate": {
+          "description": "Terminate event.",
+          "type": "object",
+          "properties": {
+            "name": {},
+            "description": {},
+            "expression": {},
+            "meta": {}
+          },
+          "default": "{}",
+          "additionalProperties": false,
+          "allOf": [{ "$ref": "#/definitions/common" }]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "conditional": {
+      "type": "object",
+      "properties": {
+        "conditional": {
+          "description": "Conditional event.",
+          "type": "object",
+          "properties": {
+            "condition": {},
+            "is_interrupting": {},
+            "name": {},
+            "description": {},
+            "expression": {},
+            "meta": {}
+          },
+          "required": ["condition"],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "properties": {
+                "condition": {
+                  "description": "EXPRESSION Boolean expression.",
+                  "type": "string",
+                  "default": "!expr "
+                },
+                "is_interrupting": {
+                  "$ref": "#/definitions/is_interrupting"
+                }
+              }
+            },
+            { "$ref": "#/definitions/common" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "timer": {
+      "type": "object",
+      "properties": {
+        "timer": {
+          "description": "Timer event.",
+          "type": "object",
+          "properties": {
+            "start": {},
+            "period": {},
+            "is_interrupting": {},
+            "name": {},
+            "description": {},
+            "expression": {},
+            "meta": {}
+          },
+          "required": ["start"],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "properties": {
+                "start": {
+                  "description": "EXPRESSION Start time.",
+                  "type": "string",
+                  "default": "!expr "
+                },
+                "period": {
+                  "description": "EXPRESSION Period of repeating.",
+                  "type": "string",
+                  "default": "!expr "
+                },
+                "is_interrupting": {
+                  "$ref": "#/definitions/is_interrupting"
+                }
+              }
+            },
+            { "$ref": "#/definitions/common" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "boundary_event": {
+      "oneOf": [
+        { "$ref": "#/definitions/conditional" },
+        { "$ref": "#/definitions/timer" }
+      ]
+    },
+
+    "looping": {
+      "properties": {
+        "kind": {
+          "description": "Kind of looping.",
+          "type": "string",
+          "enum": ["Multi-instance", "Standard"],
+          "default": "Multi-instance"
+        },
+        "condition": {
+          "description": "EXPRESSION Looping condition; looping while true.",
+          "type": "string",
+          "default": "!expr "
+        },
+        "test": {
+          "description": "Is the loop condition evaluated before or after the loop iteration?",
+          "enum": ["Before", "After"],
+          "default": "After"
+        },
+        "maximum": {
+          "description": "EXPRESSION Maximal number of iterations.",
+          "type": "string",
+          "default": "!expr "
+        },
+        "for_each": {
+          "description": "EXPRESSION Collection to be iterated.",
+          "type": "string",
+          "default": "!expr "
+        },
+        "ordering": {
+          "description": "Sequential or parallel running of iterations.",
+          "enum": ["Sequential", "Parallel"],
+          "default": "Parallel"
+        }
+      },
+      "required": ["kind"],
+      "if": { "properties": { "kind": { "const": "Standard" } } },
+      "then": {
+        "required": ["condition", "test"]
+      },
+      "else": {
+        "required": ["for_each", "ordering"]
+      }
+    },
+
+    "activity": {
+      "type": "object",
+      "properties": {
+        "looping": {},
+        "events": {},
+        "name": {},
+        "description": {},
+        "expression": {},
+        "meta": {}
+      },
+      "allOf": [
+        {
+          "properties": {
+            "looping": {
+              "description": "Looping parameters.",
+              "$ref": "#/definitions/looping" },
+            "events": {
+              "description": "List of boundary events.",
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/boundary_event"
+              }
+            }
+          }
+        },
+        { "$ref": "#/definitions/common" }
+      ]
+    },
+
+    "task": {
+      "type": "object",
+      "properties": {
+        "task": {
+          "description": "Single process task",
+          "type": "object",
+          "properties": {
+            "type": {},
+            "parameters": {},
+            "looping": {},
+            "events": {},
+            "name": {},
+            "description": {},
+            "expression": {},
+            "meta": {}
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "properties": {
+                "type": {
+                  "description": "Type of task",
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "Abstract",
+                        "User",
+                        "Manual",
+                        "Service",
+                        "Send",
+                        "Receive",
+                        "Business Rule",
+                        "Script"
+                      ]
+                    },
+                    { "type": "string" }
+                  ]
+                },
+                "parameters": {
+                  "description": "Map of task parameters. Keys are strings and values are expressions.",
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            },
+            { "$ref": "#/definitions/activity" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "flow": {
+      "type": "object",
+      "properties": {
+        "flow": {
+          "description": "Sequence of flow elements",
+          "type": "array",
+          "items": {
+            "allOf": [{ "$ref": "#/definitions/task" }]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "par": {
+      "type": "object",
+      "properties": {
+        "par": {
+          "description": "Parallel gateway",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "flow": {
+                "$ref": "#/definitions/flow"
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "exclusive": {
+      "type": "object",
+      "properties": {
+        "exclusive": {
+          "description": "Exclusive gateway",
+
+          "$comment": "TODO add guard here"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "inclusive": {
+      "type": "object",
+      "properties": {
+        "inclusive": {
+          "description": "Inclusive gateway",
+
+          "$comment": "TODO add guard here"
+        }
+      },
+      "additionalProperties": false
+    },
+
+    "ref": {
+      "type": "object",
+      "properties": {
+        "ref": {
+          "description": "Reference to existing element.",
+          "type": "object"
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "element": {
+      "oneOf": [
+        { "$ref": "#/definitions/none" },
+        { "$ref": "#/definitions/conditional" },
+        { "$ref": "#/definitions/timer" },
+        { "$ref": "#/definitions/terminate" },
+        { "$ref": "#/definitions/task" },
+        { "$ref": "#/definitions/par" },
+        { "$ref": "#/definitions/exclusive" },
+        { "$ref": "#/definitions/inclusive" },
+        { "$ref": "#/definitions/ref" }
+      ]
+    }
+  },
+
+  "type": "array",
+  "items": {
+    "$ref": "#/definitions/element"
+  },
+  "minItems": 1
+}

@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "*.data": "yaml",
+        "*.process": "yaml"
+    },
+    "yaml.schemas": {
+        "./src/schema/dataSchema.json": "*.data",
+        "./src/schema/processSchema.json": "*.process",
+        "./src/schema/testSchema.json": "test.yml"
+    },
+    "yaml.customTags": [
+        "!expr"
+    ]
+}

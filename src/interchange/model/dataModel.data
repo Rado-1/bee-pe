@@ -1,0 +1,53 @@
+# Example of YAML data model
+
+- class: &A
+    name: A
+    description: First testing class
+    visibility: public
+    attributes:
+      - name: attr1
+        type: str
+        default: !expr now().toString()
+        multiplicity: 0..N
+        description: |
+          This is testing multi-line
+          attribute. Hello, hello,
+          hello.
+      - name: attr2
+        type: String
+        meta:
+          - an: fdfd
+          - f: ff
+          - W.T.F.?
+          - hello: John
+        multiplicity: 0..1
+
+- class: &B
+    name: B
+    is_abstract: true
+    meta:
+      - author: rce
+      - date: 11.11.2019
+
+- class: &C
+    name: C
+    super: *A
+    visibility: protected
+
+- association:
+    description: Association from A to Bs
+    from: *A
+    from_mult: 0..1
+    from_composition: true
+    to: *B
+    to_mult: 0..N
+    meta:
+      - who: l kksjdhf
+      - doo: ksdjhfkdsj
+
+- association:
+    description: From A to Cs
+    from: *A
+    from_composition: true
+    to: *C
+    to_mult: 0..N
