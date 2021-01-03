@@ -1,4 +1,5 @@
-import { Activity, ActivityBuilder, ElementBuilder } from './lang';
+import { BUILD } from './lang-core';
+import { Activity, BpmnBuilder, ActivityBuilder } from './lang-bpmn';
 
 // Tasks
 
@@ -10,16 +11,16 @@ class Script extends Activity {
     this.script = script;
   }
 
-  protected async do(): Promise<void> {
-    return await new Promise((resolve) => {
+  protected do(): Promise<void> {
+    return new Promise((resolve) => {
       this.script();
       resolve();
     });
   }
 }
 
-declare module './lang' {
-  interface ElementBuilder {
+declare module './lang-bpmn' {
+  interface BpmnBuilder {
     /**
      * Adds a script task to process.
      * @param scr the script (function) executed if the task is running
@@ -36,18 +37,16 @@ declare module './lang' {
   }
 }
 
-ElementBuilder.prototype._T_script = function (
-  scr: () => void
-): ActivityBuilder {
-  this.model.add(new Script(scr));
+BpmnBuilder.prototype._T_script = function (scr: () => void): ActivityBuilder {
+  BUILD.model.add(new Script(scr));
 
-  return ActivityBuilder.getInstance(this.model);
+  return new ActivityBuilder();
 };
 
-ElementBuilder.prototype._T_log = function (
+BpmnBuilder.prototype._T_log = function (
   msg: string | (() => string)
 ): ActivityBuilder {
-  this.model.add(
+  BUILD.model.add(
     new Script(
       typeof msg === 'string'
         ? () => console.log(msg)
@@ -55,7 +54,7 @@ ElementBuilder.prototype._T_log = function (
     )
   );
 
-  return ActivityBuilder.getInstance(this.model);
+  return new ActivityBuilder();
 };
 
 // TODO add tasks: http call, user... user task will require TodoService
