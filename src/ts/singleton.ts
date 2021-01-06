@@ -1,4 +1,5 @@
 // https://trevoratlas.com/posts/how-to-create-a-typescript-singleton-decorator
+// INFO apply for instantiation of subclasses first, then superclasses
 
 const SINGLETON_KEY = Symbol();
 

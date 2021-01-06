@@ -1,6 +1,3 @@
-// TODO reconsider applying builder pattern strictly; learn it
-// TODO @Singleton for sub-classes return parent instance - FIX! -> singletons are temporarily disabled
-
 // Elements
 
 export abstract class Element {
@@ -173,34 +170,16 @@ class GenericBuildStatus {
 export const BUILD = new GenericBuildStatus();
 
 /**
- * Generic element builder. Is sub-classed for concrete process languages.
+ * Generic element builder.
  */
 export abstract class ElementBuilder {
+  // TODO id can be used even if no previous element was specified
   /**
    * Adds id property to the current element.
    * @param id element's unique identifier
    */
   id(id: string): ElementBuilder {
     BUILD.currentElement.id = id;
-
-    return this;
-  }
-
-  /**
-   * Set the current element to the element with the specified id.
-   * @param id identifier of the element to return to
-   */
-  moveTo(id: string): ElementBuilder {
-    BUILD.model.moveTo(id);
-
-    return this;
-  }
-
-  /**
-   * Connects the current element with
-   */
-  connectTo(id: string): ElementBuilder {
-    BUILD.model.connectTo(id);
 
     return this;
   }
@@ -215,5 +194,29 @@ export abstract class ElementBuilder {
     BUILD.currentElement = undefined;
 
     return BUILD.model;
+  }
+}
+
+/**
+ * Builder for flow-based models.
+ */
+export abstract class FlowBuilder extends ElementBuilder {
+  /**
+   * Set the current element to the element with the specified id.
+   * @param id identifier of the element to return to
+   */
+  moveTo(id: string): FlowBuilder {
+    BUILD.model.moveTo(id);
+
+    return this;
+  }
+
+  /**
+   * Connects the current element with
+   */
+  connectTo(id: string): FlowBuilder {
+    BUILD.model.connectTo(id);
+
+    return this;
   }
 }

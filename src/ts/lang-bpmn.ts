@@ -7,9 +7,8 @@
 // TODO _E_terminate()
 // TODO boundary events -> see Camunda
 
-import { Element, ElementBuilder, ProcessModel, BUILD } from './lang-core';
+import { Element, ProcessModel, BUILD, FlowBuilder } from './lang-core';
 import { Singleton } from './singleton';
-// import { Singleton } from './singleton';
 
 // TODO realize the following idea:
 /**
@@ -186,7 +185,7 @@ export enum MultiType {
   SEQUENTIAL,
 }
 
-enum LoopingType {
+export enum LoopingType {
   STANDARD,
   MULTIINSTANCE,
 }
@@ -331,7 +330,8 @@ function setNewEvent(event: Event): void {
   }
 }
 
-export class BpmnBuilder extends ElementBuilder {
+@Singleton
+export class BpmnBuilder extends FlowBuilder {
   /**
    * Adds conditional event.
    * @param condition condition which triggers the event
@@ -477,6 +477,7 @@ export class BpmnBuilder extends ElementBuilder {
   }
 }
 
+@Singleton
 export class ActivityBuilder extends BpmnBuilder {
   /**
    * Adds id property to the current activity.
@@ -543,5 +544,7 @@ export function bpmn(id?: string): BpmnBuilder {
   BUILD.model = new ProcessModel(id);
   BUILD.model.addSub(new EmbeddedSubprocess());
 
+  // initialize all used builders, return the top-most
+  new ActivityBuilder();
   return new BpmnBuilder();
 }
