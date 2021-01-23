@@ -7,8 +7,84 @@
 // TODO _E_terminate()
 // TODO boundary events -> see Camunda
 
-import { Element, ProcessModel, BUILD, FlowBuilder } from './lang-core';
-import { Singleton } from './singleton';
+import {
+  Element,
+  FlowElement,
+  FlowModel,
+  FlowBuilder,
+  FlowBuildStatus,
+  BUILD_FLOW,
+  ProcessModel,
+  BUILD,
+} from './lang-core';
+import {
+  Singleton,
+  Flexible,
+  getValueOfFlexible,
+  Condition,
+  Action,
+} from './utils';
+
+// *** SECTION *** Elements
+
+// TODO implement continuous checking of events
+// TODO implement interruption of boundary owner if specified
+// IDEA is it inherited from Element or FlowElement? depends onusage in other than BPMN models
+export abstract class Event extends FlowElement {
+  isContinuous: boolean = false;
+  isInterrupting: boolean = false;
+  owner: Element;
+}
+
+export class ConditionalEvent extends Event {
+  condition: Condition;
+
+  constructor(condition: Condition, id?: string) {
+    super(id);
+    this.condition = condition;
+  }
+
+  // TODO implement do() - promise waiting for condition
+}
+
+// TODO fix: date shouldnot be taken from time of specifying the model, but from time when this element is executed; use function
+export class TimeEvent extends Event {
+  protected date: number;
+  protected period?: number;
+
+  constructor(date: number, period?: number, id?: string) {
+    super(id);
+    this.date = date;
+    this.period = period;
+  }
+
+  protected do(): Promise<void> {
+    return new Promise((resolve) =>
+      setTimeout(() => {
+        resolve();
+        this.repeat(resolve);
+      }, this.date - Date.now())
+    );
+  }
+
+  // TODO ??? fix: implement with promise ???
+  repeat(resolve: Action) {
+    if (this.period) {
+      setTimeout(() => {
+        resolve;
+        this.repeat(resolve);
+      }, this.period);
+    }
+  }
+}
+
+// TODO implement ReceiveSignalEvent
+export class ReceiveSignalEvent extends Event {}
+
+export class EndEvent extends FlowElement {
+  // do not proceed
+  protected proceed(): void {}
+}
 
 // TODO realize the following idea:
 /**
@@ -21,7 +97,7 @@ import { Singleton } from './singleton';
  *  joinAction: updates number of input tokens when output tokens are generated
  *  remark: the map represent the value of incomingTokens
  */
-export class ParallelGateway extends Element {
+export class ParallelGateway extends FlowElement {
   // number of tokens at incoming flows identified by ids of connected elements
   incomingTokens = new Map<string, number>();
 
@@ -29,7 +105,7 @@ export class ParallelGateway extends Element {
    * Registers incoming flow.
    * @param element element from which the flow comes
    */
-  protected onAddNext(element: Element) {
+  protected onAddNext(element: FlowElement) {
     this.incomingTokens.set(element.id, 0);
   }
 
@@ -37,7 +113,7 @@ export class ParallelGateway extends Element {
    * Increments number of token on a flow coming from element.
    * @param fromElement element from which the token comes
    */
-  protected onExecute(fromElement?: Element) {
+  protected onExecute(fromElement?: FlowElement) {
     this.incomingTokens.set(
       fromElement.id,
       this.incomingTokens.get(fromElement.id) + 1
@@ -47,13 +123,13 @@ export class ParallelGateway extends Element {
   /**
    * Checks existence of tokens on each incoming flow.
    */
-  executeNext(): void {
+  protected proceed(): void {
     // at least one token on each incoming flow
     // TODO find more effective way
     if (
       [...this.incomingTokens.values()].find((val) => val === 0) === undefined
     ) {
-      super.executeNext();
+      super.proceed();
       // decrease number of tokens on incoming flows
       // TODO find more effective way
       this.incomingTokens.forEach((value, key) => {
@@ -63,9 +139,9 @@ export class ParallelGateway extends Element {
   }
 }
 
-export class ExclusiveGateway extends Element {
-  executeNext(): void {
-    let nextElement: Element;
+export class ExclusiveGateway extends FlowElement {
+  protected proceed(): void {
+    let nextElement: FlowElement;
 
     if (this.next.length === 1) {
       nextElement = this.next[0];
@@ -87,11 +163,11 @@ export class ExclusiveGateway extends Element {
   }
 }
 
-export class Guard extends Element {
-  private condition: () => boolean;
+export class Guard extends FlowElement {
+  private condition: Condition;
   isDefault: boolean;
 
-  constructor(condition?: () => boolean) {
+  constructor(condition?: Condition) {
     super();
     this.condition = condition;
     this.isDefault = !condition;
@@ -102,62 +178,6 @@ export class Guard extends Element {
    */
   canGo(): boolean {
     return this.condition ? this.condition() : false;
-  }
-}
-
-export abstract class Event extends Element {
-  isContinuous: boolean = false;
-  isInterrupting: boolean = true;
-}
-
-export class ConditionalEvent extends Event {
-  condition: () => boolean;
-
-  constructor(condition: () => boolean) {
-    super();
-    this.condition = condition;
-  }
-
-  // TODO implement do() - promise waiting for condition
-}
-
-// TODO fix: date shouldnot be taken from time of specifying the model, but from time when this element is executed; use function
-export class TimeEvent extends Event {
-  protected date: number;
-  protected period?: number;
-
-  constructor(date: number, period?: number) {
-    super();
-    this.date = date;
-    this.period = period;
-  }
-
-  do(): Promise<void> {
-    return new Promise((resolve) =>
-      setTimeout(() => {
-        resolve();
-        this.repeat(resolve);
-      }, this.date - Date.now())
-    );
-  }
-
-  // TODO ??? fix: implement with promise ???
-  repeat(resolve: () => void) {
-    if (this.period) {
-      setTimeout(() => {
-        resolve;
-        this.repeat(resolve);
-      }, this.period);
-    }
-  }
-}
-
-export class EndEvent extends Element {
-  // proceed execution only to parent if exists
-  protected proceed(): void {
-    if (this.parent) {
-      this.parent.executeNext();
-    }
   }
 }
 
@@ -190,10 +210,10 @@ export enum LoopingType {
   MULTIINSTANCE,
 }
 
-export abstract class Activity extends Element {
+export abstract class Activity extends FlowElement {
   // looping properties
   protected loopingType: LoopingType;
-  protected loopCondition: () => boolean;
+  protected loopCondition: Condition;
   protected loopTest: LoopTest;
   protected loopMax: number;
   protected multiItems: any[];
@@ -202,32 +222,32 @@ export abstract class Activity extends Element {
   protected boundaryEvents: Event[] = [];
 
   setLooping(
-    condition: () => boolean,
-    loopTest: LoopTest = LoopTest.BEFORE,
-    maxLoop?: number
+    loopCondition?: Condition,
+    loopTest?: LoopTest,
+    loopMax?: number
   ): void {
     this.loopingType = LoopingType.STANDARD;
-    this.loopCondition = condition;
-    this.loopTest = loopTest;
-    this.loopMax = maxLoop;
+    this.loopCondition = loopCondition ?? (() => true);
+    this.loopTest = loopTest ?? LoopTest.BEFORE;
+    this.loopMax = loopMax;
   }
 
   setMultiinstance(
     items: any[],
     onIteration?: (item: any) => void,
-    multiType: MultiType = MultiType.PARALLEL
+    multiType?: MultiType
   ) {
     this.loopingType = LoopingType.MULTIINSTANCE;
     this.multiItems = items;
     this.multiOnIteration = onIteration;
-    this.multiType = multiType;
+    this.multiType = multiType ?? MultiType.PARALLEL;
   }
 
   addBoundaryEvent(event: Event) {
     this.boundaryEvents.push(event);
   }
 
-  execute(fromElement?: Element): void {
+  execute(fromElement?: FlowElement): void {
     // looping
     switch (this.loopingType) {
       case LoopingType.STANDARD:
@@ -243,7 +263,7 @@ export abstract class Activity extends Element {
           } while ((!this.loopMax || iterator-- > 0) && this.loopCondition());
         }
 
-        this.executeNext();
+        this.proceed();
 
         break;
 
@@ -261,7 +281,7 @@ export abstract class Activity extends Element {
             super.execute(fromElement, false);
         }
 
-        this.executeNext();
+        this.proceed();
 
         break;
 
@@ -272,63 +292,88 @@ export abstract class Activity extends Element {
   }
 }
 
-export class EmbeddedSubprocess extends Activity {
-  protected eventSubprocesses: Event[] = [];
+export class Subprocess extends Activity {
+  protected processModel: Flexible<ProcessModel>;
 
-  addEventSubprocess(event: Event) {
-    this.eventSubprocesses.push(event);
-  }
-}
-
-export class CallSubprocess extends Activity {
-  protected processModel: ProcessModel;
-
-  constructor(processModel: ProcessModel) {
-    super();
+  constructor(processModel: Flexible<ProcessModel>, id?: string) {
+    super(id);
     this.processModel = processModel;
   }
 
   protected do(): Promise<void> {
     return new Promise((resolve) => {
-      this.processModel.execute();
+      getValueOfFlexible(this.processModel).execute();
       resolve();
     });
   }
 }
 
-// Builders
+// *** SECTION *** Models
+
+export class BpmnModel extends FlowModel {
+  protected eventSubprocesses: EventProcessModel[] = [];
+
+  addNext(element: FlowElement) {
+    // setting boundary event
+    if (BUILD_BPMN.isBoundary) {
+      if (element instanceof Event) {
+        const event: Event = element as Event;
+
+        event.isContinuous = true;
+        event.isInterrupting = BUILD_BPMN.isBoundaryInterrupting;
+        event.owner = BUILD_BPMN.boundaryOwner;
+        BUILD_BPMN.boundaryOwner.addBoundaryEvent(event);
+        BUILD_BPMN.isBoundary = false;
+        BUILD_BPMN.setCurrentElement(undefined);
+      } else {
+        throw new Error('Boundary must start with event.');
+      }
+    }
+
+    super.addNext(element);
+  }
+
+  addEventSubprocess(eventSubProcess: EventProcessModel) {
+    this.eventSubprocesses.push(eventSubProcess);
+  }
+}
+
+export class EventProcessModel extends BpmnModel {
+  add(element: FlowElement): void {
+    if (!this.findElement) {
+      // first element must be event
+      if (element instanceof Event) {
+        // first element is continuous
+        (element as Event).isContinuous = true;
+      } else {
+        throw new Error('First element of event sub-process must be event');
+      }
+    }
+
+    super.add(element);
+  }
+
+  addEventSubprocess(eventSubProcess: EventProcessModel) {
+    throw new Error('Event sub-process cannot contain event sub-process');
+  }
+}
+
+// *** SECTION *** Builders
 
 /**
  * Global variables of BPMN process building status.
  */
-class BpmnBuildStatus {
-  isEventSubprocess: boolean = false;
-  lastElementBeforeEventSubprocess: Element;
+export class BpmnBuildStatus extends FlowBuildStatus {
   isBoundary: boolean = false;
   isBoundaryInterrupting: boolean;
   boundaryOwner: Activity;
-}
 
-export const BPMN_BUILD = new BpmnBuildStatus();
-
-/**
- * Helper used to set event properties if it first of event subprocess or
- * boundary event.
- * @param event
- */
-function setNewEvent(event: Event): void {
-  if (BPMN_BUILD.isBoundary) {
-    event.isContinuous = true;
-    event.isInterrupting = BPMN_BUILD.isBoundaryInterrupting;
-    BPMN_BUILD.boundaryOwner.addBoundaryEvent(event);
-    BPMN_BUILD.isBoundary = false;
-  }
-
-  if (BPMN_BUILD.isEventSubprocess) {
-    event.isContinuous = true;
-    (BUILD.currentParent as EmbeddedSubprocess).addEventSubprocess(event);
+  getCurrentModel(): BpmnModel {
+    return super.getCurrentModel() as BpmnModel;
   }
 }
+
+export const BUILD_BPMN = new BpmnBuildStatus();
 
 @Singleton
 export class BpmnBuilder extends FlowBuilder {
@@ -336,9 +381,8 @@ export class BpmnBuilder extends FlowBuilder {
    * Adds conditional event.
    * @param condition condition which triggers the event
    */
-  _E_conditional(condition: () => boolean): BpmnBuilder {
-    BUILD.model.add(new ConditionalEvent(condition));
-
+  _E_conditional(condition: Condition, id?: string): BpmnBuilder {
+    BUILD_BPMN.addNextElement(new ConditionalEvent(condition, id));
     return this;
   }
 
@@ -347,38 +391,34 @@ export class BpmnBuilder extends FlowBuilder {
    * @param date
    * @param period
    */
-  _E_time(date: number, period?: number): BpmnBuilder {
-    BUILD.model.add(new TimeEvent(date, period));
-
+  _E_time(date: number, period?: number, id?: string): BpmnBuilder {
+    BUILD_BPMN.addNextElement(new TimeEvent(date, period, id));
     return this;
   }
 
   /**
    * Adds Simple End Event.
    */
-  _E_end(): BpmnBuilder {
-    BUILD.model.add(new EndEvent());
-
+  _E_end(id?: string): BpmnBuilder {
+    BUILD_BPMN.addNextElement(new EndEvent(id));
     return this;
   }
 
   /**
    * Adds Parallel Gateway.
-   * @param id identifier of gateway
+   * @param id optional identifier of gateway
    */
   _G_parallel(id: string): BpmnBuilder {
-    BUILD.model.add(new ParallelGateway(id));
-
+    BUILD_BPMN.addNextElement(new ParallelGateway(id));
     return this;
   }
 
   /**
    * Adds Exclusive Gateway.
-   * @param id? optional identifier of gateway
+   * @param id optional identifier of gateway
    */
   _G_exclusive(id?: string): BpmnBuilder {
-    BUILD.model.add(new ExclusiveGateway(id));
-
+    BUILD_BPMN.addNextElement(new ExclusiveGateway(id));
     return this;
   }
 
@@ -386,9 +426,8 @@ export class BpmnBuilder extends FlowBuilder {
    * Adds guard condition for a flow coming from Exclusive Gateway.
    * @param condition guard condition
    */
-  guard(condition: () => boolean): BpmnBuilder {
-    BUILD.model.add(new Guard(condition));
-
+  guard(condition: Condition): BpmnBuilder {
+    BUILD_BPMN.addNextElement(new Guard(condition));
     return this;
   }
 
@@ -396,57 +435,24 @@ export class BpmnBuilder extends FlowBuilder {
    * Adds default flow coming from Exclusive Gateway.
    */
   default(): BpmnBuilder {
-    BUILD.model.add(new Guard());
-
+    BUILD_BPMN.addNextElement(new Guard());
     return this;
   }
 
   /**
-   * Instantiates process model as sub-process.
-   * @param processModel process model to be instantiated as sub-process
+   * Includes sub-process; either call or embedded.
+   * @param processModel process model
    */
-  call(processModel: ProcessModel): ActivityBuilder {
-    BUILD.model.add(new CallSubprocess(processModel));
-
-    return new ActivityBuilder();
-  }
-
-  /**
-   * Adds embedded sub-process.
-   */
-  sub(): ActivityBuilder {
-    BUILD.model.addSub(new EmbeddedSubprocess());
-
+  sub(processModel: Flexible<ProcessModel>, id?: string): ActivityBuilder {
+    BUILD_BPMN.addNextElement(new Subprocess(processModel, id));
     return new ActivityBuilder();
   }
 
   /**
    * Creates event sub-process.
    */
-  subEvent(): BpmnBuilder {
-    if (!BPMN_BUILD.isEventSubprocess) {
-      BPMN_BUILD.isEventSubprocess = true;
-      BPMN_BUILD.lastElementBeforeEventSubprocess = BUILD.currentElement;
-    } else {
-      throw new Error(`Event sub-processes cannot be nested.`);
-    }
-
-    return this;
-  }
-
-  /**
-   * Finishes definition of embedded sub-process.
-   */
-  subDone(): BpmnBuilder {
-    if (BPMN_BUILD.isEventSubprocess) {
-      // reset flags if boundary handler or event subprocess
-      BPMN_BUILD.isEventSubprocess = false;
-      BUILD.currentElement = BPMN_BUILD.lastElementBeforeEventSubprocess;
-    } else {
-      // normal sub-process
-      BUILD.model.subDone();
-    }
-
+  subEvent(eventProcessModel: EventProcessModel): BpmnBuilder {
+    BUILD_BPMN.getCurrentModel().addEventSubprocess(eventProcessModel);
     return this;
   }
 
@@ -455,8 +461,7 @@ export class BpmnBuilder extends FlowBuilder {
    * @param id identifier of the element to return to
    */
   moveTo(id: string): BpmnBuilder {
-    BUILD.model.moveTo(id);
-
+    BUILD_BPMN.getCurrentModel().moveTo(id);
     return this;
   }
 
@@ -464,8 +469,7 @@ export class BpmnBuilder extends FlowBuilder {
    * Connects the current element with
    */
   connectTo(id: string): BpmnBuilder {
-    BUILD.model.connectTo(id);
-
+    BUILD_BPMN.getCurrentModel().connectTo(id);
     return this;
   }
 
@@ -475,31 +479,30 @@ export class BpmnBuilder extends FlowBuilder {
   asActivity(): ActivityBuilder {
     return new ActivityBuilder();
   }
+
+  /**
+   * Finishes definition of the model.
+   * @returns defined model
+   */
+  done(): BpmnModel {
+    return super.done() as BpmnModel;
+  }
 }
 
 @Singleton
 export class ActivityBuilder extends BpmnBuilder {
   /**
-   * Adds id property to the current activity.
-   * @param id unique identifier of activity
-   */
-  id(id: string): ActivityBuilder {
-    super.id(id);
-    return this;
-  }
-
-  /**
    * Sets standard looping to previously specified activity.
    * @param condition looping condition
-   * @param loopTest test condition before or after performing the action
-   * @param maxLoop maximal number of loops
+   * @param test test condition before or after performing the action
+   * @param max maximal number of loops
    */
-  loop(
-    condition: () => boolean,
-    loopTest?: LoopTest,
-    maxLoop?: number
-  ): ActivityBuilder {
-    (BUILD.currentElement as Activity).setLooping(condition, loopTest, maxLoop);
+  loop(condition?: Condition, test?: LoopTest, max?: number): ActivityBuilder {
+    (BUILD_BPMN.getCurrentElement() as Activity).setLooping(
+      condition,
+      test,
+      max
+    );
 
     return this;
   }
@@ -515,7 +518,7 @@ export class ActivityBuilder extends BpmnBuilder {
     onIteration?: (item: any) => void,
     multiType?: MultiType
   ): ActivityBuilder {
-    (BUILD.currentElement as Activity).setMultiinstance(
+    (BUILD_BPMN.getCurrentElement() as Activity).setMultiinstance(
       items,
       onIteration,
       multiType
@@ -528,8 +531,9 @@ export class ActivityBuilder extends BpmnBuilder {
    * Adds boundary event and its handler to the current activity. Must be followed by event.
    */
   boundary(isInterrupting = true): BpmnBuilder {
-    BPMN_BUILD.isBoundary = true;
-    BPMN_BUILD.isBoundaryInterrupting = isInterrupting;
+    BUILD_BPMN.isBoundary = true;
+    BUILD_BPMN.isBoundaryInterrupting = isInterrupting;
+    BUILD_BPMN.boundaryOwner = BUILD_BPMN.getCurrentElement() as Activity;
 
     return new BpmnBuilder();
   }
@@ -541,8 +545,7 @@ export class ActivityBuilder extends BpmnBuilder {
  */
 export function bpmn(id?: string): BpmnBuilder {
   // create model and add the top sub-process - parent of all BPMN elements
-  BUILD.model = new ProcessModel(id);
-  BUILD.model.addSub(new EmbeddedSubprocess());
+  BUILD_BPMN.setCurrentModel(new BpmnModel(id));
 
   // initialize all used builders, return the top-most
   new ActivityBuilder();

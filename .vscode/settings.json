@@ -1,14 +1,30 @@
 {
-    "files.associations": {
-        "*.data": "yaml",
-        "*.process": "yaml"
-    },
-    "yaml.schemas": {
-        "./src/schema/dataSchema.json": "*.data",
-        "./src/schema/processSchema.json": "*.process",
-        "./src/schema/testSchema.json": "test.yml"
-    },
-    "yaml.customTags": [
-        "!expr"
-    ]
+  "todo-tree.general.tags": [
+    "BUG",
+    "FIXME",
+    "HACK",
+    "TODO",
+    "IDEA",
+    "INFO",
+    "*** SECTION ***"
+  ],
+  "todo-tree.highlights.backgroundColourScheme": [
+    "#F63F38",
+    "#F56E5D",
+    "#F5C336",
+    "#318727",
+    "#3FA9F5",
+    "#015294",
+    "#28c9c4"
+  ],
+  "todo-tree.highlights.customHighlight": {
+    "BUG": { "icon": "bug" },
+    "FIXME": { "icon": "flame" },
+    "HACK": { "icon": "zap" },
+    "TODO": { "icon": "check-circle" },
+    "IDEA": { "icon": "unverified" },
+    "INFO": { "icon": "info" },
+    "*** SECTION ***": { "icon": "file-directory" }
+  },
+  "todo-tree.highlights.useColourScheme": true
 }

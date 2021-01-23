@@ -1,13 +1,19 @@
 import { BUILD } from './lang-core';
-import { Activity, BpmnBuilder, ActivityBuilder } from './lang-bpmn';
+import {
+  Activity,
+  BpmnBuilder,
+  ActivityBuilder,
+  BUILD_BPMN,
+} from './lang-bpmn';
+import { Action, Flexible, getValueOfFlexible } from './utils';
 
 // Tasks
 
 class Script extends Activity {
-  private script: () => void;
+  private script: Action;
 
-  constructor(script: () => void) {
-    super();
+  constructor(script: Action, id?: string) {
+    super(id);
     this.script = script;
   }
 
@@ -19,39 +25,43 @@ class Script extends Activity {
   }
 }
 
+// extend BPMN builder by new task types
+
 declare module './lang-bpmn' {
   interface BpmnBuilder {
     /**
      * Adds a script task to process.
      * @param scr the script (function) executed if the task is running
+     * @param id identifier of task
      */
-    _T_script(scr: () => void): ActivityBuilder;
+    _T_script(scr: Action, id?: string): ActivityBuilder;
 
     /**
      * Add a log task to process. The log task logs the specified message to
      * console.
      * @param msg the message specified either as string or function returning
+     * @param id identifier of task
      * string
      */
-    _T_log(msg: string | (() => string)): ActivityBuilder;
+    _T_log(msg: Flexible<string>, id?: string): ActivityBuilder;
   }
 }
 
-BpmnBuilder.prototype._T_script = function (scr: () => void): ActivityBuilder {
-  BUILD.model.add(new Script(scr));
+BpmnBuilder.prototype._T_script = function (
+  scr: Action,
+  id?: string
+): ActivityBuilder {
+  BUILD_BPMN.addNextElement(new Script(scr, id));
 
   return new ActivityBuilder();
 };
 
 BpmnBuilder.prototype._T_log = function (
-  msg: string | (() => string)
+  msg: Flexible<string>,
+  id?: string
 ): ActivityBuilder {
-  BUILD.model.add(
-    new Script(
-      typeof msg === 'string'
-        ? () => console.log(msg)
-        : () => console.log(msg())
-    )
+  BUILD_BPMN.addNextElement(
+    new Script(() => console.log(getValueOfFlexible(msg)), id)
   );
 
   return new ActivityBuilder();

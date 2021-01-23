@@ -1,5 +1,5 @@
 {
   "scripts": {
-    "start": "ts-node \"src/ts/main.ts\""
+    "start": "ts-node \"src/main.ts\""
   }
 }

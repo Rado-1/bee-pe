@@ -1,51 +1,66 @@
-import { bpmn, goals, LoopTest } from './lang';
+import {
+  bpmn,
+  conditional,
+  goals,
+  LoopTest,
+  receiveSignal,
+  stm,
+  time,
+} from './engine/lang';
 
 main();
 
+// TODO check availability of commands at given model level for all models
 function main() {
   let i = 0;
 
   // prettier-ignore
   const subProcessModel = bpmn('SubProcess')
-    ._T_log('REUSABLE SUB-PROCESS').id('reusableLog')
+    ._T_log('REUSABLE SUB-PROCESS')
     .done()
 
   // prettier-ignore
   const processModel = bpmn('ExampleProcess')
-    ._T_log('A').id('A')
+    ._T_log('A', 'A')
     ._T_log('B')
 
-    // parallel branch with delay
+    // parallel branch from A with delay
     ._E_time(Date.now() + 2000)
+    ._T_log('XXX')
     // normal looping
     ._T_script(() => {i++; console.log('C ' + i);})
       .loop(() => i < 5, LoopTest.BEFORE, 3)
     // multi-instance
     ._T_log(() => 'Q ' + i).multi([5,7,9], (iter) => i = iter)
     ._E_end()
-    
+
     // parallel branch from A
     .moveTo('A')
     ._T_log('D')
-    
+
     // call reusable (sub-)process
-    .call(subProcessModel)
-    
+    .sub(subProcessModel)
+
     // embedded sub-sub-process
-    .sub().id('1st_sub')
+    .sub(
+      bpmn()
       ._T_log('EMBEDDED SUB-PROCESS')
-      .sub().id('2nd_sub')
+      .sub(
+        bpmn()
         ._T_log('EMBEDDED SUB-SUB-PROCESS')
-        ._E_end()
-        .subDone()
-      .subDone()
+        .done()
+        , '2nd_sub')
+      .done()
+      , '1st_sub')
 
     // event sub-process
-    .subEvent()
+    .subEvent(bpmn()
       ._E_conditional(()=> i > 10)
       ._T_log('EVENT i>10')
       ._E_end()
-      .subDone()
+      .done()
+    )
+    .moveTo('1st_sub')
 
     // parallel fork/join
     ._G_parallel('fork1')
@@ -58,7 +73,7 @@ function main() {
       ._T_log('G')
       .connectTo('join1')
     .moveTo('join1')
-    
+
     ._T_log('H')
 
     // exclusive gateway with 3 branches
@@ -76,7 +91,7 @@ function main() {
     .moveTo('ex1merge')
 
     // boundary events
-    ._T_log('L').id('L')
+    ._T_log('L', 'L')
       .boundary()
         ._E_conditional(() => true)
         ._T_log('X')
@@ -84,13 +99,12 @@ function main() {
     .moveTo('L').asActivity()
       .boundary(false)
         ._E_conditional(() => i > 10)
-        ._T_log('X')
+        ._T_log('Y')
         ._E_end()
     .moveTo('L')
     ._T_log('M')
     .done();
 
-  // TODO check what commands are available at what level
   // prettier-ignore
   const goalModel = goals('GoalProcess')
     .achieve('A')
@@ -98,41 +112,86 @@ function main() {
         .achieve('B1')
           .pre(() => true)
           .deactivate(() => i > 0)
-          .plans()
+          .subPlans()
             .plan('P1')
-              .process(bpmn()
-                ._T_log('Plan P1')
-                .done())
+              .process(bpmn()._T_log('Plan P1').done())
               .planDone()
-          .plansDone()
+          .subPlansDone()
         .achieve('B2')
           .subGoals()
             .achieve('C1')
-              .plans()
+              .subPlans()
                 .plan('P2')
                   .pre(() => true)
                   .planDone()
                 .plan('P3')
                   .planDone()
-              .plansDone()
+              .subPlansDone()
             .achieve('C2')
-              .plans()
+              .subPlans()
                 .plan('P4')
                   .planDone()
-              .plansDone()
-          .subDone()
+              .subPlansDone()
+          .subGoalsDone()
         .achieve('B3')
-          .plans()
+          .subPlans()
             .plan('P5')
               .planDone()
-          .plansDone()
+          .subPlansDone()
         .maintain('M1')
           .that(() => i < 0)
-          .plans()
-            .plan('P6')
-            .planDone()
-          .plansDone()
-          .goalDone()
+            .subPlans()
+              .plan('P6')
+               .planDone()
+            .subPlansDone()
+    .subGoalsDone()
+    .done();
+
+  // prettier-ignore
+  const stmProcessModel = stm()
+    .initial('A')
+    .state('B')
+      .entry(() => i = 0)
+      .exit(() => i = 20)
+      .do(() => i++)
+      .intTran()
+        .trigger(conditional(() => true))
+        .guard(() => i > 10)
+        .action(subProcessModel.execute)
+        .internDone()
+      .intTran()
+        .trigger(time(2000))
+        .action(() => i = 0)
+        .internDone()
+      .stateDone()
+    .state('C')
+      .region()
+        .initial('C11')
+        .state('C12').stateDone()
+        .state('C13').stateDone()
+        .final('C14')
+        .tran('C11', 'C12').tranDone()
+        .tran('C12', 'C13').tranDone()
+        .tran('C13', 'C14').tranDone()
+        .shallowHistory()
+        .regionDone()
+      .region()
+        .initial('C21')
+        .final('C22')
+        .tran('C21', 'C22').tranDone()
+        .regionDone()
+      .stateDone()
+      .final('D')
+    .tran('A', 'B')
+      .tranDone()
+    .tran('B', 'C')
+      .trigger(time(2000))
+      .trigger(conditional(() => i > 3))
+      .action(() => i = -10)
+      .tranDone()
+    .tran('C', 'D')
+      .trigger(receiveSignal())
+      .tranDone()
     .done();
 
   processModel.execute();
