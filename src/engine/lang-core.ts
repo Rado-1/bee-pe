@@ -1,6 +1,21 @@
-// *** SECTION *** Elements
+import { uuid } from './utils';
 
-import { Action, Condition, uuid } from './utils';
+// *** SECTION *** Error processing
+
+export class ProcessError extends Error {
+  constructor(name: string, message?: string) {
+    // see https://stackoverflow.com/questions/41102060/typescript-extending-error-class
+    super(message);
+    this.name = name;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+
+  in(errorCodes: string[]): boolean {
+    return errorCodes.findIndex((item) => item === this.name) != -1;
+  }
+}
+
+// *** SECTION *** Elements
 
 export abstract class Element {
   id: string;
@@ -74,7 +89,7 @@ export abstract class FlowElement extends Element {
 
 // *** SECTION *** Models
 
-export class ProcessModel {
+export abstract class ProcessModel {
   id?: string;
   firstElement: Element;
   elements: Element[] = [];
@@ -113,9 +128,28 @@ export class ProcessModel {
   execute() {
     this.firstElement.execute();
   }
+
+  /**
+   * Returns builder of given type for element in model. If element id is
+   * omitted, the first model element is used. The returned builder can be
+   * used to modify model.
+   * @param builderType type of builder
+   * @param elementId identifier of element becoming the current building element
+   */
+  getBuilder<T extends ProcessBuilder>(
+    builderType: { new (): T },
+    elementId?: string
+  ): T {
+    const element = this.findElement(elementId) ?? this.firstElement;
+
+    BUILD.setCurrentModel(this);
+    BUILD.setCurrentElement(element);
+
+    return new builderType();
+  }
 }
 
-export class FlowModel extends ProcessModel {
+export abstract class FlowModel extends ProcessModel {
   addNext(element: FlowElement): void {
     // link to previous current element
     if (BUILD_FLOW.getCurrentElement()) {
@@ -135,72 +169,44 @@ export class FlowModel extends ProcessModel {
 /**
  * Global variables of process building status.
  */
-class ProcessBuildStatus {
+export class ProcessBuildStatus {
   protected currentModel: ProcessModel;
   protected modelStack: ProcessModel[] = [];
   protected currentElement: Element;
   protected elementStack: Element[] = [];
 
   setCurrentModel(model: ProcessModel): void {
-    this.modelStack.push(this.currentModel);
-    this.currentModel = model;
-    this.elementStack.push(this.currentElement);
-    this.currentElement = undefined;
+    BUILD.modelStack.push(BUILD.currentModel);
+    BUILD.currentModel = model;
+    BUILD.elementStack.push(BUILD.currentElement);
+    BUILD.currentElement = undefined;
   }
 
   unsetCurrentModel(): void {
-    this.currentModel = this.modelStack.pop();
-
-    BUILD.currentElement = this.elementStack.pop();
+    BUILD.currentModel = BUILD.modelStack.pop();
+    BUILD.currentElement = BUILD.elementStack.pop();
   }
 
   getCurrentModel(): ProcessModel {
-    return this.currentModel;
+    return BUILD.currentModel;
   }
 
   addElement(element: Element): void {
-    this.currentModel.add(element);
+    BUILD.currentModel.add(element);
   }
 
   getCurrentElement(): Element {
-    return this.currentElement;
+    return BUILD.currentElement;
   }
 
   setCurrentElement(element: Element) {
-    this.currentElement = element;
+    BUILD.currentElement = element;
   }
 }
 
 export const BUILD = new ProcessBuildStatus();
 
-/**
- * Proxy to BUILD variable. Ensures that all properties are get/set from global
- * BUILD variable. All concrete builders should extend it directly or
- * indirectly.
- */
-export abstract class ProxyBuildStatus extends ProcessBuildStatus {
-  setCurrentModel(model: ProcessModel) {
-    BUILD.setCurrentModel(model);
-  }
-
-  unsetCurrentModel() {
-    BUILD.unsetCurrentModel();
-  }
-
-  getCurrentModel(): ProcessModel {
-    return BUILD.getCurrentModel();
-  }
-
-  getCurrentElement(): Element {
-    return BUILD.getCurrentElement();
-  }
-
-  setCurrentElement(element: Element) {
-    BUILD.setCurrentElement(element);
-  }
-}
-
-export class FlowBuildStatus extends ProxyBuildStatus {
+export class FlowBuildStatus extends ProcessBuildStatus {
   getCurrentModel(): FlowModel {
     return super.getCurrentModel() as FlowModel;
   }

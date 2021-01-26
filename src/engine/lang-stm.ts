@@ -6,7 +6,7 @@ import {
   Element,
   ProcessModel,
   ProcessBuilder,
-  ProxyBuildStatus,
+  ProcessBuildStatus,
 } from './lang-core';
 import { Singleton, Action, Condition } from './utils';
 
@@ -34,6 +34,7 @@ export class Region {
   history: History = History.NONE;
 }
 
+// IDEA think about joining STM triggers with BPMN events; maybe define something common
 export abstract class Trigger {}
 
 export class ConditionalTrigger extends Trigger {
@@ -62,14 +63,14 @@ export class Transition extends Element {}
 
 // *** SECTION *** Models
 
-// IDEA what about StmModel?
+export class StmModel extends ProcessModel {}
 
 // *** SECTION *** Builders
 
 /**
  * Global variables of BPMN process building status.
  */
-export class StmBuildStatus extends ProxyBuildStatus {
+export class StmBuildStatus extends ProcessBuildStatus {
   currentRegion: Region;
 }
 
@@ -268,7 +269,7 @@ export function receiveSignal(): ReceiveSignalTrigger {
  */
 export function stm(id?: string): StmBuilder {
   // create model and add the top sub-process - parent of all BPMN elements
-  BUILD_STM.setCurrentModel(new ProcessModel(id));
+  BUILD_STM.setCurrentModel(new StmModel(id));
 
   // initialize all used builders, return the top-most
   new StateBuilder();

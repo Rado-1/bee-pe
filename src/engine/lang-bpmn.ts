@@ -1,11 +1,9 @@
 // TODO executional semantics for boundary
 // TODO executional semantics for event subprocesses
-// TODO implement activity looping
+// TODO implement activity looping semantics
 // TODO design timers for delay and date+period events
 // TODO implement semantics of conditional event
-// TODO ??? _P_event -> event sub-process; or use intermediate events without input flows...? or _P_embedded/call starting with event
 // TODO _E_terminate()
-// TODO boundary events -> see Camunda
 
 import {
   Element,
@@ -80,6 +78,9 @@ export class TimeEvent extends Event {
 
 // TODO implement ReceiveSignalEvent
 export class ReceiveSignalEvent extends Event {}
+
+/* IDEA think about _E_errorThrow (also fails plans), _E_errorCatch((error:any)=>boolean, (error:any) => void),
+_E_signalThrow, _E_signalCatch((signal: any) => boolean, (signal:any) => void) */
 
 export class EndEvent extends FlowElement {
   // do not proceed

@@ -1,8 +1,11 @@
 import {
+  ActivityBuilder,
   bpmn,
+  BpmnBuilder,
   conditional,
   goals,
   LoopTest,
+  ProcessModel,
   receiveSignal,
   stm,
   time,
@@ -10,17 +13,23 @@ import {
 
 main();
 
-// TODO check availability of commands at given model level for all models
 function main() {
   let i = 0;
 
   // prettier-ignore
   const subProcessModel = bpmn('SubProcess')
-    ._T_log('REUSABLE SUB-PROCESS')
+    ._T_log('REUSABLE SUB-PROCESS', 'QQ1')
     .done()
 
+  // insert element to subProcess
+  subProcessModel.getBuilder(BpmnBuilder, 'QQ1')._T_log('AFTER QQ1');
+
+  function parametricSubProcess(paramater1: string): ProcessModel {
+    return bpmn('ParametricSubProcess')._T_log(paramater1).done();
+  }
+
   // prettier-ignore
-  const processModel = bpmn('ExampleProcess')
+  const bpmnModel = bpmn('ExampleProcess')
     ._T_log('A', 'A')
     ._T_log('B')
 
@@ -38,8 +47,15 @@ function main() {
     .moveTo('A')
     ._T_log('D')
 
-    // call reusable (sub-)process
+    // call reusable sub-process
     .sub(subProcessModel)
+
+    // call parametric sub-process with runtime parameter
+    ._T_script(() => i=100)
+    .sub(() => parametricSubProcess('RUNTIME PARAMETRIC REUSABLE SUB-PROCESS ' + i))
+
+    // call parametric sub-process with modeling-time parameter
+    .sub(parametricSubProcess('MODELING-TIME PARAMETRIC REUSABLE SUB-PROCESS ' + i))
 
     // embedded sub-sub-process
     .sub(
@@ -115,6 +131,7 @@ function main() {
           .subPlans()
             .plan('P1')
               .process(bpmn()._T_log('Plan P1').done())
+              .failErrors(['ErrorX', 'ErrorY'])
               .planDone()
           .subPlansDone()
         .achieve('B2')
@@ -194,5 +211,6 @@ function main() {
       .tranDone()
     .done();
 
-  processModel.execute();
+  //bpmnModel.execute();
+  goalModel.execute();
 }
