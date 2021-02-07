@@ -165,7 +165,7 @@ function main() {
     .done();
 
   // prettier-ignore
-  const stmProcessModel = stm()
+  const stmModel = stm()
     .initial('A')
     .state('B')
       .entry(() => i = 0)
@@ -212,5 +212,6 @@ function main() {
     .done();
 
   //bpmnModel.execute();
-  goalModel.execute();
+  //goalModel.execute();
+  stmModel.execute();
 }

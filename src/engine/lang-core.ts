@@ -114,7 +114,7 @@ export abstract class ProcessModel {
     if (foundElement) {
       return foundElement;
     } else {
-      throw new Error(`Element with id ${id} not found.`);
+      throw new Error(`Element with id \'${id}\' not found.`);
     }
   }
 

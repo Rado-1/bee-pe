@@ -1,6 +1,4 @@
-// TODO define STM elements
-// TODO define how STM builders create elements
-// TODO define executional semantics of STM
+// TODO define executional semantics of STM elements
 
 import {
   Element,
@@ -16,11 +14,18 @@ export class State extends Element {
   entryAction: Action;
   exitAction: Action;
   doAction: Action;
-  internalTransitions;
-  regions: Region[];
+  internalTransitions: Transition[] = [];
+  outTransitions: Transition[] = [];
+  regions: Region[] = [];
+  parentRegion: Region;
+  isTerminate = false;
 
-  constructor(id?: string) {
-    super(id);
+  addInternalTransition(transition: Transition): void {
+    this.internalTransitions.push(transition);
+  }
+
+  addOutTransition(transition: Transition): void {
+    this.outTransitions.push(transition);
   }
 }
 
@@ -30,8 +35,15 @@ export enum History {
   DEEP,
 }
 
-export class Region {
+export class Region extends Element {
   history: History = History.NONE;
+  states: State[] = [];
+  initialState: State;
+  parentState: State;
+
+  addState(state: State): void {
+    this.states.push(state);
+  }
 }
 
 // IDEA think about joining STM triggers with BPMN events; maybe define something common
@@ -59,7 +71,17 @@ export class TimeTrigger extends Trigger {
 
 export class ReceiveSignalTrigger extends Trigger {}
 
-export class Transition extends Element {}
+export class Transition extends Element {
+  from: State;
+  to: State;
+  triggers: Trigger[] = [];
+  guard: Condition;
+  action: Action;
+
+  addTrigger(trigger: Trigger): void {
+    this.triggers.push(trigger);
+  }
+}
 
 // *** SECTION *** Models
 
@@ -77,12 +99,14 @@ export class StmBuildStatus extends ProcessBuildStatus {
 export const BUILD_STM = new StmBuildStatus();
 
 @Singleton
-export class StmBuilder extends ProcessBuilder {
+export class RegionBuilder extends ProcessBuilder {
   /**
    * Creates initial pseudostate.
    * @param id id of initial
    */
-  initial(id: string): StmBuilder {
+  initial(id: string): RegionBuilder {
+    this.state(id);
+    BUILD_STM.currentRegion.initialState = BUILD_STM.getCurrentElement() as State;
     return this;
   }
 
@@ -90,7 +114,8 @@ export class StmBuilder extends ProcessBuilder {
    * Creates final state finishing the enclosing region execution.
    * @param id id of final
    */
-  final(id: string): StmBuilder {
+  final(id: string): RegionBuilder {
+    this.state(id);
     return this;
   }
 
@@ -98,30 +123,25 @@ export class StmBuilder extends ProcessBuilder {
    * Creates terminal pseudostate terminating the whole state machine.
    * @param id id of terminate
    */
-  terminate(id: string): StmBuilder {
-    return this;
-  }
-
-  /**
-   * Creates junction pseudostate. It can be used also instead of join and
-   * fork pseudostates.
-   * @param id id of junction
-   */
-  junction(id: string): StmBuilder {
+  terminate(id: string): RegionBuilder {
+    this.state(id);
+    (BUILD_STM.getCurrentElement() as State).isTerminate = true;
     return this;
   }
 
   /**
    * Specifies that the current region has shallow history.
    */
-  shallowHistory(): StmBuilder {
+  shallowHistory(): RegionBuilder {
+    BUILD_STM.currentRegion.history = History.SHALLOW;
     return this;
   }
 
   /**
    * Specifies that the current region has deep history.
    */
-  deepHistory(): StmBuilder {
+  deepHistory(): RegionBuilder {
+    BUILD_STM.currentRegion.history = History.DEEP;
     return this;
   }
 
@@ -130,20 +150,56 @@ export class StmBuilder extends ProcessBuilder {
    * @param id id of state
    */
   state(id: string): StateBuilder {
+    const state = new State(id);
+    state.parentRegion = BUILD_STM.currentRegion;
+    state.parentRegion.addState(state);
+    BUILD_STM.addElement(state);
+
     return new StateBuilder();
   }
 
   /**
    * Creates external transition.
-   * @param from id of transition source (pseudo)state.
-   * @param to id of transition target (pseudo)state.
+   * @param from id of transition source (pseudo)state
+   * @param to id of transition target (pseudo)state
+   * @param id id of transition
    */
-  tran(from: string, to: string): TransitionBuilder {
+  tran(from: string, to: string, id?: string): TransitionBuilder {
+    const fromState: State = BUILD_STM.getCurrentModel().findElement(
+      from
+    ) as State;
+    const transition = new Transition(id);
+
+    transition.from = fromState;
+    transition.to = BUILD_STM.getCurrentModel().findElement(to) as State;
+    fromState.addOutTransition(transition);
+    BUILD_STM.addElement(transition);
+
     return new TransitionBuilder();
   }
 
+  /**
+   * Finishes the current region.
+   */
   regionDone(): StateBuilder {
+    const currentState = BUILD_STM.currentRegion.parentState;
+    BUILD_STM.currentRegion = currentState.parentRegion;
+    BUILD_STM.setCurrentElement(currentState);
     return new StateBuilder();
+  }
+
+  /**
+   * Returns the current element as state.
+   */
+  asState(): StateBuilder {
+    return new StateBuilder();
+  }
+
+  /**
+   * Returns the current element as transition.
+   */
+  asTransition(): TransitionBuilder {
+    return new TransitionBuilder();
   }
 }
 
@@ -154,6 +210,7 @@ export class StateBuilder {
    * @param action action to be executed on entering the state
    */
   entry(action: Action): StateBuilder {
+    (BUILD_STM.getCurrentElement() as State).entryAction = action;
     return this;
   }
 
@@ -162,6 +219,7 @@ export class StateBuilder {
    * @param action action to be executed on finishing the state
    */
   exit(action: Action): StateBuilder {
+    (BUILD_STM.getCurrentElement() as State).exitAction = action;
     return this;
   }
 
@@ -170,28 +228,44 @@ export class StateBuilder {
    * @param action action to be executed when the sate is active
    */
   do(action: Action): StateBuilder {
+    (BUILD_STM.getCurrentElement() as State).doAction = action;
     return this;
   }
 
   /**
    * Adds state's internal transition.
    */
-  intTran(): TransitionBuilder {
+  intTran(id?: string): TransitionBuilder {
+    const currentState = BUILD_STM.getCurrentElement() as State;
+    const transition = new Transition(id);
+
+    transition.from = currentState;
+    transition.to = currentState;
+    currentState.addInternalTransition(transition);
+    BUILD_STM.addElement(transition);
+
     return new TransitionBuilder();
   }
 
   /**
    * Creates region.
+   * @param id id of region
    */
-  region(): StmBuilder {
-    return new StmBuilder();
+  region(id?: string): RegionBuilder {
+    const region = new Region(id);
+
+    region.parentState = BUILD_STM.getCurrentElement() as State;
+    BUILD_STM.currentRegion = region;
+    BUILD_STM.addElement(region);
+
+    return new RegionBuilder();
   }
 
   /**
    * Finishes the state definition.
    */
-  stateDone(): StmBuilder {
-    return new StmBuilder();
+  stateDone(): RegionBuilder {
+    return new RegionBuilder();
   }
 }
 
@@ -203,6 +277,7 @@ export class TransitionBuilder {
    * @param event triggering event
    */
   trigger(trigger: Trigger): TransitionBuilder {
+    (BUILD_STM.getCurrentElement() as Transition).addTrigger(trigger);
     return this;
   }
 
@@ -211,6 +286,7 @@ export class TransitionBuilder {
    * @param cond condition
    */
   guard(cond: Condition): TransitionBuilder {
+    (BUILD_STM.getCurrentElement() as Transition).guard = cond;
     return this;
   }
 
@@ -219,6 +295,7 @@ export class TransitionBuilder {
    * @param action action to be executed
    */
   action(action: Action): TransitionBuilder {
+    (BUILD_STM.getCurrentElement() as Transition).action = action;
     return this;
   }
 
@@ -226,14 +303,22 @@ export class TransitionBuilder {
    * Finoshes definition of internal transition.
    */
   internDone(): StateBuilder {
+    BUILD_STM.setCurrentElement(
+      (BUILD_STM.getCurrentElement() as Transition).from
+    );
+
     return new StateBuilder();
   }
 
   /**
    * Finishes definition of external transition.
    */
-  tranDone(): StmBuilder {
-    return new StmBuilder();
+  tranDone(): RegionBuilder {
+    BUILD_STM.setCurrentElement(
+      (BUILD_STM.getCurrentElement() as Transition).from.parentRegion
+    );
+
+    return new RegionBuilder();
   }
 }
 
@@ -267,11 +352,15 @@ export function receiveSignal(): ReceiveSignalTrigger {
  * Creates an empty state machine process model.
  * @param id unique identifier of the process
  */
-export function stm(id?: string): StmBuilder {
-  // create model and add the top sub-process - parent of all BPMN elements
+export function stm(id?: string): RegionBuilder {
+  // create model and add the top region
   BUILD_STM.setCurrentModel(new StmModel(id));
+  const topRegion = new Region();
+  BUILD_STM.addElement(topRegion);
+  BUILD_STM.currentRegion = topRegion;
 
   // initialize all used builders, return the top-most
   new StateBuilder();
-  return new StmBuilder();
+  new TransitionBuilder();
+  return new RegionBuilder();
 }

@@ -475,7 +475,7 @@ export class BpmnBuilder extends FlowBuilder {
   }
 
   /**
-   * Tells that the current element is Activity.
+   * Returns the current element as Activity.
    */
   asActivity(): ActivityBuilder {
     return new ActivityBuilder();
