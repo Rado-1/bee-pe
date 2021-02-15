@@ -41,6 +41,8 @@ export function getValueOfFlexible<T>(value: Flexible<T>): T {
 
 export type Action = () => void;
 
+export type StringAction = (val: string) => void;
+
 export type Condition = () => boolean;
 
 export function uuid(): string {

@@ -1,9 +1,10 @@
+// TODO check building model - all things
 // TODO executional semantics for boundary
 // TODO executional semantics for event subprocesses
 // TODO implement activity looping semantics
 // TODO design timers for delay and date+period events
 // TODO implement semantics of conditional event
-// TODO _E_terminate()
+// TODO implement eventTerminate()
 
 import {
   Element,
@@ -11,9 +12,7 @@ import {
   FlowModel,
   FlowBuilder,
   FlowBuildStatus,
-  BUILD_FLOW,
   ProcessModel,
-  BUILD,
 } from './lang-core';
 import {
   Singleton,
@@ -79,8 +78,8 @@ export class TimeEvent extends Event {
 // TODO implement ReceiveSignalEvent
 export class ReceiveSignalEvent extends Event {}
 
-/* IDEA think about _E_errorThrow (also fails plans), _E_errorCatch((error:any)=>boolean, (error:any) => void),
-_E_signalThrow, _E_signalCatch((signal: any) => boolean, (signal:any) => void) */
+/* IDEA think about eventErrorThrow (also fails plans), eventErrorCatch((error:any)=>boolean, (error:any) => void),
+eventSignalThrow, eventSignalCatch((signal: any) => boolean, (signal:any) => void) */
 
 export class EndEvent extends FlowElement {
   // do not proceed
@@ -89,7 +88,7 @@ export class EndEvent extends FlowElement {
 
 // TODO realize the following idea:
 /**
- * Idea: _G_parallel(id: string,
+ * Idea: gatewayParallel(id: string,
  *    joinCondition?: (Map<string, number>) => boolean,
  *    joinAction?: (Map<string, number>) => Map<string, number>)
  *
@@ -382,7 +381,7 @@ export class BpmnBuilder extends FlowBuilder {
    * Adds conditional event.
    * @param condition condition which triggers the event
    */
-  _E_conditional(condition: Condition, id?: string): BpmnBuilder {
+  eventConditional(condition: Condition, id?: string): BpmnBuilder {
     BUILD_BPMN.addNextElement(new ConditionalEvent(condition, id));
     return this;
   }
@@ -392,7 +391,7 @@ export class BpmnBuilder extends FlowBuilder {
    * @param date
    * @param period
    */
-  _E_time(date: number, period?: number, id?: string): BpmnBuilder {
+  eventTime(date: number, period?: number, id?: string): BpmnBuilder {
     BUILD_BPMN.addNextElement(new TimeEvent(date, period, id));
     return this;
   }
@@ -400,7 +399,7 @@ export class BpmnBuilder extends FlowBuilder {
   /**
    * Adds Simple End Event.
    */
-  _E_end(id?: string): BpmnBuilder {
+  eventEnd(id?: string): BpmnBuilder {
     BUILD_BPMN.addNextElement(new EndEvent(id));
     return this;
   }
@@ -409,7 +408,7 @@ export class BpmnBuilder extends FlowBuilder {
    * Adds Parallel Gateway.
    * @param id optional identifier of gateway
    */
-  _G_parallel(id: string): BpmnBuilder {
+  gatewayParallel(id: string): BpmnBuilder {
     BUILD_BPMN.addNextElement(new ParallelGateway(id));
     return this;
   }
@@ -418,7 +417,7 @@ export class BpmnBuilder extends FlowBuilder {
    * Adds Exclusive Gateway.
    * @param id optional identifier of gateway
    */
-  _G_exclusive(id?: string): BpmnBuilder {
+  gatewayExclusive(id?: string): BpmnBuilder {
     BUILD_BPMN.addNextElement(new ExclusiveGateway(id));
     return this;
   }

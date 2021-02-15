@@ -15,43 +15,51 @@ main();
 
 function main() {
   let i = 0;
+  let j = 0;
 
+  //  reusable static sub-process
   // prettier-ignore
   const subProcessModel = bpmn('SubProcess')
-    ._T_log('REUSABLE SUB-PROCESS', 'QQ1')
+    .taskLog('REUSABLE SUB-PROCESS', 'XX')
+    .taskConsoleInput('Enter value of i (number): ', (val: string) => i = Number(val))
+    .taskLog(() => 'i = ' + i, 'QQ1')
+    .moveTo('XX')
+    .taskConsoleInput('Enter value of j (number): ', (val: string) => j = Number(val))
+    .taskLog(() => 'j = ' + j)
     .done()
 
   // insert element to subProcess
-  subProcessModel.getBuilder(BpmnBuilder, 'QQ1')._T_log('AFTER QQ1');
+  //subProcessModel.getBuilder(BpmnBuilder, 'QQ1').taskLog('AFTER QQ1');
 
+  // static parametric sub-process
   function parametricSubProcess(paramater1: string): ProcessModel {
-    return bpmn('ParametricSubProcess')._T_log(paramater1).done();
+    return bpmn('ParametricSubProcess').taskLog(paramater1).done();
   }
 
   // prettier-ignore
   const bpmnModel = bpmn('ExampleProcess')
-    ._T_log('A', 'A')
-    ._T_log('B')
+    .taskLog('A', 'A')
+    .taskLog('B')
 
     // parallel branch from A with delay
-    ._E_time(Date.now() + 2000)
-    ._T_log('XXX')
+    .eventTime(Date.now() + 2000)
+    .taskLog('XXX')
     // normal looping
-    ._T_script(() => {i++; console.log('C ' + i);})
+    .taskScript(() => {i++; console.log('C ' + i);})
       .loop(() => i < 5, LoopTest.BEFORE, 3)
     // multi-instance
-    ._T_log(() => 'Q ' + i).multi([5,7,9], (iter) => i = iter)
-    ._E_end()
+    .taskLog(() => 'Q ' + i).multi([5,7,9], (iter) => i = iter)
+    .eventEnd()
 
     // parallel branch from A
     .moveTo('A')
-    ._T_log('D')
+    .taskLog('D')
 
     // call reusable sub-process
     .sub(subProcessModel)
 
     // call parametric sub-process with runtime parameter
-    ._T_script(() => i=100)
+    .taskScript(() => i=100)
     .sub(() => parametricSubProcess('RUNTIME PARAMETRIC REUSABLE SUB-PROCESS ' + i))
 
     // call parametric sub-process with modeling-time parameter
@@ -60,10 +68,10 @@ function main() {
     // embedded sub-sub-process
     .sub(
       bpmn()
-      ._T_log('EMBEDDED SUB-PROCESS')
+      .taskLog('EMBEDDED SUB-PROCESS')
       .sub(
         bpmn()
-        ._T_log('EMBEDDED SUB-SUB-PROCESS')
+        .taskLog('EMBEDDED SUB-SUB-PROCESS')
         .done()
         , '2nd_sub')
       .done()
@@ -71,54 +79,54 @@ function main() {
 
     // event sub-process
     .subEvent(bpmn()
-      ._E_conditional(()=> i > 10)
-      ._T_log('EVENT i>10')
-      ._E_end()
+      .eventConditional(()=> i > 10)
+      .taskLog('EVENT i>10')
+      .eventEnd()
       .done()
     )
     .moveTo('1st_sub')
 
     // parallel fork/join
-    ._G_parallel('fork1')
-      ._T_log('E')
-      ._G_parallel('join1')
+    .gatewayParallel('fork1')
+      .taskLog('E')
+      .gatewayParallel('join1')
     .moveTo('fork1')
-      ._T_log('F')
+      .taskLog('F')
       .connectTo('join1')
     .moveTo('fork1')
-      ._T_log('G')
+      .taskLog('G')
       .connectTo('join1')
     .moveTo('join1')
 
-    ._T_log('H')
+    .taskLog('H')
 
     // exclusive gateway with 3 branches
-    ._G_exclusive('ex1')
+    .gatewayExclusive('ex1')
       .guard(() => Math.random() < 0.5)
-      ._T_log('I')
-      ._E_end()
+      .taskLog('I')
+      .eventEnd()
     .moveTo('ex1')
       .guard(() => true)
-      ._T_log('J')
-      ._G_exclusive('ex1merge')
+      .taskLog('J')
+      .gatewayExclusive('ex1merge')
     .moveTo('ex1')
       .default()
-      ._T_log('K')
+      .taskLog('K')
     .moveTo('ex1merge')
 
     // boundary events
-    ._T_log('L', 'L')
+    .taskLog('L', 'L')
       .boundary()
-        ._E_conditional(() => true)
-        ._T_log('X')
-        ._E_end()
+        .eventConditional(() => true)
+        .taskLog('X')
+        .eventEnd()
     .moveTo('L').asActivity()
       .boundary(false)
-        ._E_conditional(() => i > 10)
-        ._T_log('Y')
-        ._E_end()
+        .eventConditional(() => i > 10)
+        .taskLog('Y')
+        .eventEnd()
     .moveTo('L')
-    ._T_log('M')
+    .taskLog('M')
     .done();
 
   // prettier-ignore
@@ -130,7 +138,7 @@ function main() {
           .deactivate(() => i > 0)
           .subPlans()
             .plan('P1')
-              .process(bpmn()._T_log('Plan P1').done())
+              .process(bpmn().taskLog('Plan P1').done())
               .failErrors(['ErrorX', 'ErrorY'])
               .planDone()
           .subPlansDone()
@@ -211,7 +219,8 @@ function main() {
       .tranDone()
     .done();
 
+  subProcessModel.execute();
   //bpmnModel.execute();
   //goalModel.execute();
-  stmModel.execute();
+  //stmModel.execute();
 }

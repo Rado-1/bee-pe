@@ -11,7 +11,7 @@ export class ProcessError extends Error {
   }
 
   in(errorCodes: string[]): boolean {
-    return errorCodes.findIndex((item) => item === this.name) != -1;
+    return errorCodes.includes(this.name);
   }
 }
 
