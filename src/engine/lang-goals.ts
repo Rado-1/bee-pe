@@ -10,14 +10,14 @@ import { Singleton, Flexible, Condition } from './utils';
 
 // *** SECTION *** Elements
 
-abstract class GoalPlan extends Element {
+export abstract class GoalPlan extends Element {
   // pre-condition for Achieve Goal and Plan
   // maintain condition for Maintain Goal
   condition: Condition;
   parent: Goal;
 }
 
-abstract class Goal extends GoalPlan {
+export abstract class Goal extends GoalPlan {
   sub: GoalPlan[] = [];
 
   addChild(child: GoalPlan): void {
@@ -46,7 +46,7 @@ export class GoalsModel extends ProcessModel {}
 /**
  * Global variables of goal process building status.
  */
-class GoalBuildStatus extends ProcessBuildStatus {
+export class GoalBuildStatus extends ProcessBuildStatus {
   currentParent: Goal;
 
   getCurrentElement(): GoalPlan {

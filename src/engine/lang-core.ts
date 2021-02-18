@@ -38,6 +38,9 @@ export abstract class Element {
   protected onExecute(fromElement?: Element): void {}
 }
 
+/**
+ * A modeling element which can be put to flow process.
+ */
 export abstract class FlowElement extends Element {
   next: FlowElement[] = [];
 

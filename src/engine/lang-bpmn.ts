@@ -181,6 +181,9 @@ export class Guard extends FlowElement {
   }
 }
 
+/**
+ * Activity looping test kind.
+ */
 export enum LoopTest {
   /**
    * Tests the loop condition before execution of activity; while-do loop.

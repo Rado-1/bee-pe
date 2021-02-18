@@ -9,7 +9,7 @@ import * as readline from 'readline';
 
 // Tasks
 
-class Script extends Activity {
+export class Script extends Activity {
   private script: Action;
 
   constructor(script: Action, id?: string) {
@@ -25,30 +25,36 @@ class Script extends Activity {
   }
 }
 
-class ConsoleInput extends Activity {
+export class ConsoleInput extends Activity {
   private question: string;
   private action: StringAction;
-  private readLine;
+  static inputQueue: ConsoleInput[] = [];
 
   constructor(question: string, action: StringAction, id?: string) {
     super(id);
     this.question = question;
     this.action = action;
+
+    ConsoleInput.inputQueue.push(this);
   }
 
   // FIXME allow to execute more taskConcoleInputs concurrently
   protected do(): Promise<void> {
     return new Promise((resolve) => {
-      this.readLine = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
+      while (ConsoleInput.inputQueue.length) {
+        const rl = readline.createInterface({
+          input: process.stdin,
+          output: process.stdout,
+        });
 
-      this.readLine.question(this.question, (input: string) => {
-        this.action(input);
-        this.readLine.close();
-        resolve();
-      });
+        const ci = ConsoleInput.inputQueue.pop();
+        rl.question(ci.question, (input: string) => {
+          ci.action(input);
+          rl.close();
+        });
+      }
+
+      resolve();
     });
   }
 }

@@ -1,12 +1,11 @@
-# bee.**pe**
+# bee.pe
+
+### Experimental business process engine in TypeScript
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-<img src="icon.png" width="64" align="left"> Experimental business process
-engine in TypeScript.
-
-**WARNING: This project is still in the preliminary phase used to clarify the
-fundamental concepts, not intended to be used yet.**
+**_WARNING: This project is still in the preliminary phase used to clarify the
+fundamental concepts, not intended to be used yet._**
 
 ## Features
 

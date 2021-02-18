@@ -1,0 +1,7 @@
+{
+  "entryPoints": ["src/engine/lang.ts"],
+  "out": "docs",
+  "name": "bee.pe",
+  "hideGenerator": true,
+  "excludePrivate": true
+}
