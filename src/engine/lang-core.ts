@@ -1,6 +1,7 @@
 import { uuid } from './utils';
 
-// *** SECTION *** Error processing
+// ========================================================================== //
+// Error processing
 
 export class ProcessError extends Error {
   constructor(name: string, message?: string) {
@@ -15,7 +16,8 @@ export class ProcessError extends Error {
   }
 }
 
-// *** SECTION *** Elements
+// ========================================================================== //
+// Elements
 
 export abstract class Element {
   id: string;
@@ -90,7 +92,8 @@ export abstract class FlowElement extends Element {
   }
 }
 
-// *** SECTION *** Models
+// ========================================================================== //
+// Models
 
 export abstract class ProcessModel {
   id?: string;
@@ -167,7 +170,8 @@ export abstract class FlowModel extends ProcessModel {
   }
 }
 
-// *** SECTION *** Builders
+// ========================================================================== //
+// Builders
 
 /**
  * Global variables of process building status.

@@ -14,17 +14,15 @@
     "#F5C336",
     "#318727",
     "#3FA9F5",
-    "#015294",
-    "#28c9c4"
+    "#015294"
   ],
   "todo-tree.highlights.customHighlight": {
     "BUG": { "icon": "bug" },
     "FIXME": { "icon": "flame" },
     "HACK": { "icon": "zap" },
     "TODO": { "icon": "check-circle" },
-    "IDEA": { "icon": "unverified" },
-    "INFO": { "icon": "info" },
-    "*** SECTION ***": { "icon": "file-directory" }
+    "IDEA": { "icon": "light-bulb" },
+    "INFO": { "icon": "info" }
   },
   "todo-tree.highlights.useColourScheme": true
 }

@@ -8,7 +8,8 @@ import {
 } from './lang-core';
 import { Singleton, Flexible, Condition } from './utils';
 
-// *** SECTION *** Elements
+// ========================================================================== //
+// Elements
 
 export abstract class GoalPlan extends Element {
   // pre-condition for Achieve Goal and Plan
@@ -37,11 +38,13 @@ export class Plan extends GoalPlan {
   failErrorFilter: (error: Error) => boolean;
 }
 
-// *** SECTION *** Models
+// ========================================================================== //
+// Models
 
 export class GoalsModel extends ProcessModel {}
 
-// *** SECTION *** Builders
+// ========================================================================== //
+// Builders
 
 /**
  * Global variables of goal process building status.

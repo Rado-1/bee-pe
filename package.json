@@ -1,9 +1,15 @@
 {
   "scripts": {
     "start": "ts-node \"src/main.ts\"",
-    "doc": "typedoc"
+    "test": "jest",
+    "doc": "typedoc --sourcefile-url-prefix \"https://github.com/Rado-1/bee-pe/blob/main/\""
   },
   "devDependencies": {
-    "@types/node": "^14.14.28"
+    "@types/jest": "^26.0.20",
+    "@types/node": "^14.14.30",
+    "jest": "^26.6.3",
+    "ts-jest": "^26.5.1",
+    "typedoc": "^0.20.25",
+    "typedoc-plugin-sourcefile-url": "^1.0.6"
   }
 }

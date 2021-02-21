@@ -1,30 +1,50 @@
 import {
-  ActivityBuilder,
   bpmn,
-  BpmnBuilder,
   conditional,
+  getTodoService,
   goals,
   LoopTest,
   ProcessModel,
   receiveSignal,
   stm,
   time,
+  Todo,
 } from './engine/lang';
 
 main();
 
-function main() {
-  let i = 0;
-  let j = 0;
+async function main() {
+  let i = -1;
+  let j = -1;
+  let todo1, todo2: Todo;
+
+  // prettier-ignore
+  const todoModel = bpmn('SubProcess')
+    .taskLog('before')
+    .taskTodo({
+      issueAction: (todo: Todo) => todo1 = todo,
+      submitAction: (todo: Todo) => console.log(todo.taskId + ' submitted')
+      }, 'taskAAA')
+    .taskTodo({
+      issueAction: (todo: Todo) => todo2 = todo,
+      submitAction: (todo: Todo) => console.log(todo.taskId + ' submitted')
+      }, 'taskBBB')
+    .taskLog('after')
+    .done();
 
   //  reusable static sub-process
   // prettier-ignore
   const subProcessModel = bpmn('SubProcess')
     .taskLog('REUSABLE SUB-PROCESS', 'XX')
-    .taskConsoleInput('Enter value of i (number): ', (val: string) => i = Number(val))
+    //.taskConsoleInput('Enter value of i (number): ', (val: string) => i = Number(val))
     .taskLog(() => 'i = ' + i, 'QQ1')
-    .moveTo('XX')
-    .taskConsoleInput('Enter value of j (number): ', (val: string) => j = Number(val))
+    //.taskBreakpoint()
+    .taskTodo({
+      taskId: 'taskAAA',
+      submitAction: (task) => {task}
+      }, 'aaa')
+    //.moveTo('XX')
+    //.taskConsoleInput('Enter value of j (number): ', (val: string) => j = Number(val))
     .taskLog(() => 'j = ' + j)
     .done()
 
@@ -219,7 +239,11 @@ function main() {
       .tranDone()
     .done();
 
-  subProcessModel.execute();
+  await todoModel.execute();
+  await todo1.submit();
+  await todo2.submit();
+
+  //subProcessModel.execute();
   //bpmnModel.execute();
   //goalModel.execute();
   //stmModel.execute();

@@ -19,10 +19,11 @@ import {
   Flexible,
   getValueOfFlexible,
   Condition,
-  Action,
+  ActionNoParam,
 } from './utils';
 
-// *** SECTION *** Elements
+// ========================================================================== //
+// Elements
 
 // TODO implement continuous checking of events
 // TODO implement interruption of boundary owner if specified
@@ -65,7 +66,7 @@ export class TimeEvent extends Event {
   }
 
   // TODO ??? fix: implement with promise ???
-  repeat(resolve: Action) {
+  repeat(resolve: ActionNoParam) {
     if (this.period) {
       setTimeout(() => {
         resolve;
@@ -311,7 +312,8 @@ export class Subprocess extends Activity {
   }
 }
 
-// *** SECTION *** Models
+// ========================================================================== //
+// Models
 
 export class BpmnModel extends FlowModel {
   protected eventSubprocesses: EventProcessModel[] = [];
@@ -361,7 +363,8 @@ export class EventProcessModel extends BpmnModel {
   }
 }
 
-// *** SECTION *** Builders
+// ========================================================================== //
+// Builders
 
 /**
  * Global variables of BPMN process building status.

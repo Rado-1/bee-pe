@@ -6,14 +6,15 @@ import {
   ProcessBuilder,
   ProcessBuildStatus,
 } from './lang-core';
-import { Singleton, Action, Condition } from './utils';
+import { Singleton, ActionNoParam, Condition } from './utils';
 
-// *** SECTION *** Elements
+// ========================================================================== //
+// Elements
 
 export class State extends Element {
-  entryAction: Action;
-  exitAction: Action;
-  doAction: Action;
+  entryAction: ActionNoParam;
+  exitAction: ActionNoParam;
+  doAction: ActionNoParam;
   internalTransitions: Transition[] = [];
   outTransitions: Transition[] = [];
   regions: Region[] = [];
@@ -76,18 +77,20 @@ export class Transition extends Element {
   to: State;
   triggers: Trigger[] = [];
   guard: Condition;
-  action: Action;
+  action: ActionNoParam;
 
   addTrigger(trigger: Trigger): void {
     this.triggers.push(trigger);
   }
 }
 
-// *** SECTION *** Models
+// ========================================================================== //
+// Models
 
 export class StmModel extends ProcessModel {}
 
-// *** SECTION *** Builders
+// ========================================================================== //
+// Builders
 
 /**
  * Global variables of BPMN process building status.
@@ -209,7 +212,7 @@ export class StateBuilder {
    * Specifies state entry action.
    * @param action action to be executed on entering the state
    */
-  entry(action: Action): StateBuilder {
+  entry(action: ActionNoParam): StateBuilder {
     (BUILD_STM.getCurrentElement() as State).entryAction = action;
     return this;
   }
@@ -218,7 +221,7 @@ export class StateBuilder {
    * Specifies state exit action.
    * @param action action to be executed on finishing the state
    */
-  exit(action: Action): StateBuilder {
+  exit(action: ActionNoParam): StateBuilder {
     (BUILD_STM.getCurrentElement() as State).exitAction = action;
     return this;
   }
@@ -227,7 +230,7 @@ export class StateBuilder {
    * Specifies state do action.
    * @param action action to be executed when the sate is active
    */
-  do(action: Action): StateBuilder {
+  do(action: ActionNoParam): StateBuilder {
     (BUILD_STM.getCurrentElement() as State).doAction = action;
     return this;
   }
@@ -294,7 +297,7 @@ export class TransitionBuilder {
    * Specifies the action executed when transition is triggered.
    * @param action action to be executed
    */
-  action(action: Action): TransitionBuilder {
+  action(action: ActionNoParam): TransitionBuilder {
     (BUILD_STM.getCurrentElement() as Transition).action = action;
     return this;
   }
@@ -322,7 +325,8 @@ export class TransitionBuilder {
   }
 }
 
-// *** SECTION *** Event builders
+// ========================================================================== //
+// Event builders
 
 /**
  * Conditional event.

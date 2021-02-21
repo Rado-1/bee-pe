@@ -35,16 +35,33 @@ export const Singleton = <T extends new (...args: any[]) => any>(type: T) =>
  */
 export type Flexible<T> = T | (() => T);
 
-export function getValueOfFlexible<T>(value: Flexible<T>): T {
-  return typeof value === 'function' ? (value as () => T)() : value;
+/**
+ * Returns value of Flexible<T>.
+ * @param flexValue flexible value
+ */
+export function getValueOfFlexible<T>(flexVal: Flexible<T>): T {
+  return typeof flexVal === 'function' ? (flexVal as () => T)() : flexVal;
 }
 
-export type Action = () => void;
+/**
+ * Action without parameter.
+ */
+export type ActionNoParam = () => void;
 
-export type StringAction = (val: string) => void;
+/**
+ * Action with single parameter of type T.
+ */
+export type Action<T> = (val: T) => void;
 
+/**
+ * A non-parametric function returning boolean.
+ */
 export type Condition = () => boolean;
 
+/**
+ * Generates a unique identifier, aka. UUID.
+ * @returns UUID string
+ */
 export function uuid(): string {
   return ('' + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/1|0/g, function () {
     return (0 | (Math.random() * 16)).toString(16);
