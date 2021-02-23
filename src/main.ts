@@ -36,10 +36,15 @@ async function main() {
 
   // prettier-ignore
   const consoleInputProcess = bpmn('ConsoleInputProcess')
-    .taskConsoleInput('Enter value of i (number): ', (val: string) => i = Number(val))
-    .taskLog(() => 'i = ' + i, 'QQ1')
-    //.moveTo('XX')
-    .taskConsoleInput('Enter value of j (number): ', (val: string) => j = Number(val))
+    .taskConsoleInput(
+      'Enter value of i (number): ',
+      (val: string) => i = Number(val),
+      'Question1')
+    .taskLog(() => 'i = ' + i)
+    .moveTo('Question1')
+    .taskConsoleInput(
+      'Enter value of j (number): ',
+      (val: string) => j = Number(val))
     .taskLog(() => 'j = ' + j)
     .done();
 

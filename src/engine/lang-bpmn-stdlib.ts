@@ -50,6 +50,7 @@ function ask(qa: QuestionAction): void {
     isQaActive = true;
 
     if (!isReadlineActive) {
+      isReadlineActive = true;
       rl = readline.createInterface({
         input: process.stdin,
         output: process.stdout,
@@ -60,7 +61,7 @@ function ask(qa: QuestionAction): void {
       qa.action(answer);
       isQaActive = false;
       if (qaQueue.length) {
-        ask(qaQueue.pop());
+        ask(qaQueue.shift());
       } else {
         isReadlineActive = false;
         rl.close();
