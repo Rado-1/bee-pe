@@ -1,5 +1,7 @@
 import {
+  Action,
   bpmn,
+  BpmnBuilder,
   conditional,
   getTodoService,
   goals,
@@ -19,7 +21,7 @@ async function main() {
   let todo1, todo2: Todo;
 
   // prettier-ignore
-  const todoModel = bpmn('SubProcess')
+  const todoProcess = bpmn('TodoProcess')
     .taskLog('before')
     .taskTodo({
       issueAction: (todo: Todo) => todo1 = todo,
@@ -32,24 +34,23 @@ async function main() {
     .taskLog('after')
     .done();
 
+  // prettier-ignore
+  const consoleInputProcess = bpmn('ConsoleInputProcess')
+    .taskConsoleInput('Enter value of i (number): ', (val: string) => i = Number(val))
+    .taskLog(() => 'i = ' + i, 'QQ1')
+    //.moveTo('XX')
+    .taskConsoleInput('Enter value of j (number): ', (val: string) => j = Number(val))
+    .taskLog(() => 'j = ' + j)
+    .done();
+
   //  reusable static sub-process
   // prettier-ignore
   const subProcessModel = bpmn('SubProcess')
-    .taskLog('REUSABLE SUB-PROCESS', 'XX')
-    //.taskConsoleInput('Enter value of i (number): ', (val: string) => i = Number(val))
-    .taskLog(() => 'i = ' + i, 'QQ1')
-    //.taskBreakpoint()
-    .taskTodo({
-      taskId: 'taskAAA',
-      submitAction: (task) => {task}
-      }, 'aaa')
-    //.moveTo('XX')
-    //.taskConsoleInput('Enter value of j (number): ', (val: string) => j = Number(val))
-    .taskLog(() => 'j = ' + j)
+    .taskLog('REUSABLE SUB-PROCESS (XX)', 'XX')
     .done()
 
   // insert element to subProcess
-  //subProcessModel.getBuilder(BpmnBuilder, 'QQ1').taskLog('AFTER QQ1');
+  subProcessModel.getBuilder(BpmnBuilder, 'XX').taskLog('AFTER XX');
 
   // static parametric sub-process
   function parametricSubProcess(paramater1: string): ProcessModel {
@@ -239,9 +240,11 @@ async function main() {
       .tranDone()
     .done();
 
-  await todoModel.execute();
-  await todo1.submit();
-  await todo2.submit();
+  consoleInputProcess.execute();
+
+  // await todoModel.execute();
+  // await todo1.submit();
+  // await todo2.submit();
 
   //subProcessModel.execute();
   //bpmnModel.execute();

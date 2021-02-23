@@ -31,41 +31,68 @@ export class ScriptTask extends Activity {
   }
 }
 
+// Utils for ConsoleInputTask
+
+interface QuestionAction {
+  question: string;
+  action: Action<string>;
+}
+
+let rl;
+let isReadlineActive: boolean = false;
+let isQaActive: boolean = false;
+let qaQueue: QuestionAction[] = [];
+
+function ask(qa: QuestionAction): void {
+  if (isQaActive) {
+    qaQueue.push(qa);
+  } else {
+    isQaActive = true;
+
+    if (!isReadlineActive) {
+      rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+    }
+
+    rl.question(qa.question, (answer: string) => {
+      qa.action(answer);
+      isQaActive = false;
+      if (qaQueue.length) {
+        ask(qaQueue.pop());
+      } else {
+        isReadlineActive = false;
+        rl.close();
+      }
+    });
+  }
+}
+
 /**
  * Task that requests user's input form console. This is used mainly for process
  * debugging purposes when some user inputs are required.
  */
 export class ConsoleInputTask extends Activity {
-  private question: string;
-  private action: Action<string>;
-  static inputQueue: ConsoleInputTask[] = [];
+  private qa: QuestionAction;
 
-  constructor(question: string, action: Action<string>, id?: string) {
+  constructor(qa: QuestionAction, id?: string) {
     super(id);
-    this.question = question;
-    this.action = action;
-
-    ConsoleInputTask.inputQueue.push(this);
+    this.qa = Object.assign({}, qa);
+    this.qa.action = (answer: string) => {
+      qa.action(answer);
+      this.proceed();
+    };
   }
 
-  // FIXME allow to execute more taskConcoleInputs concurrently
-  // maybe create it as special taskTodo() or TodoTask class???
-  // maybe just remove ConsoleInputTask and just define taskConsoleInput as special call of TodoTask???
+  // to block proceeding after do()
+  execute(fromElement?: FlowElement): void {
+    this.do();
+  }
+
   protected do(): Promise<void> {
     return new Promise((resolve) => {
-      while (ConsoleInputTask.inputQueue.length) {
-        const rl = readline.createInterface({
-          input: process.stdin,
-          output: process.stdout,
-        });
-
-        const ci = ConsoleInputTask.inputQueue.pop();
-        rl.question(ci.question, (input: string) => {
-          ci.action(input);
-          rl.close();
-        });
-      }
-
+      ask(this.qa);
       resolve();
     });
   }
@@ -94,6 +121,7 @@ export class TodoTask extends Activity {
     };
   }
 
+  // to block proceeding after do()
   execute(fromElement?: FlowElement): void {
     this.do();
   }
@@ -196,7 +224,7 @@ BpmnBuilder.prototype.taskConsoleInput = function (
   action: Action<string>,
   id?: string
 ): ActivityBuilder {
-  BUILD_BPMN.addNextElement(new ConsoleInputTask(question, action, id));
+  BUILD_BPMN.addNextElement(new ConsoleInputTask({ question, action }, id));
   return new ActivityBuilder();
 };
 
