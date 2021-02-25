@@ -6,7 +6,7 @@ import {
   ProcessBuildStatus,
   ProcessBuilder,
 } from './lang-core';
-import { Singleton, Flexible, Condition } from './utils';
+import { Singleton, Flexible, ConditionNoParam, Condition } from './utils';
 
 // ========================================================================== //
 // Elements
@@ -14,7 +14,7 @@ import { Singleton, Flexible, Condition } from './utils';
 export abstract class GoalPlan extends Element {
   // pre-condition for Achieve Goal and Plan
   // maintain condition for Maintain Goal
-  condition: Condition;
+  condition: ConditionNoParam;
   parent: Goal;
 }
 
@@ -27,7 +27,7 @@ export abstract class Goal extends GoalPlan {
 }
 
 export class AchieveGoal extends Goal {
-  deactivateCondition: Condition;
+  deactivateCondition: ConditionNoParam;
 }
 
 export class MaintainGoal extends Goal {}
@@ -35,7 +35,7 @@ export class MaintainGoal extends Goal {}
 export class Plan extends GoalPlan {
   processModel: Flexible<ProcessModel>;
   failErrors: string[];
-  failErrorFilter: (error: Error) => boolean;
+  failErrorFilter: Condition<Error>;
 }
 
 // ========================================================================== //
@@ -131,7 +131,7 @@ export class AchieveBuilder extends GoalBuilder {
    * Specifies pre-condition of Achieve Goal.
    * @param condition pre-condition
    */
-  pre(condition: Condition): AchieveBuilder {
+  pre(condition: ConditionNoParam): AchieveBuilder {
     BUILD_GOALS.getCurrentElement().condition = condition;
     return this;
   }
@@ -140,7 +140,7 @@ export class AchieveBuilder extends GoalBuilder {
    * specifies deactivate condition of Achieve Goal.
    * @param condition deactivate condition
    */
-  deactivate(condition: Condition) {
+  deactivate(condition: ConditionNoParam) {
     (BUILD_GOALS.getCurrentElement() as AchieveGoal).deactivateCondition = condition;
     return this;
   }
@@ -152,7 +152,7 @@ export class MaintainBuilder extends GoalBuilder {
    * Specifoes maintain condition of Maintain Goal.
    * @param condition maintain condition
    */
-  that(condition: Condition): MaintainBuilder {
+  that(condition: ConditionNoParam): MaintainBuilder {
     (BUILD_GOALS.getCurrentElement() as MaintainGoal).condition = condition;
     return this;
   }
@@ -184,7 +184,7 @@ export class PlanBuilder extends GoalLevelBuilder {
    * Specifies pre-condition of Plan
    * @param condition pre-condition of plan
    */
-  pre(condition: Condition): PlanBuilder {
+  pre(condition: ConditionNoParam): PlanBuilder {
     BUILD_GOALS.getCurrentElement().condition = condition;
     return this;
   }
@@ -202,7 +202,7 @@ export class PlanBuilder extends GoalLevelBuilder {
    * Specifies filter for errors tha cause failing of plan.
    * @param filter function returning true for failing errors
    */
-  failErrorFilter(filter: (error: Error) => boolean): PlanBuilder {
+  failErrorFilter(filter: Condition<Error>): PlanBuilder {
     (BUILD_GOALS.getCurrentElement() as Plan).failErrorFilter = filter;
     return this;
   }

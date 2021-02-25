@@ -15,29 +15,43 @@ import {
   ProcessModel,
 } from './lang-core';
 import {
+  getSignalService,
+  Signal,
+  SignalProperties,
+  SignalReceiver,
+  SignalReceiverProperties,
+} from './signal.service';
+import {
   Singleton,
   Flexible,
   getValueOfFlexible,
-  Condition,
+  ConditionNoParam,
   ActionNoParam,
+  Action,
 } from './utils';
 
 // ========================================================================== //
 // Elements
 
-// TODO implement continuous checking of events
 // TODO implement interruption of boundary owner if specified
-// IDEA is it inherited from Element or FlowElement? depends onusage in other than BPMN models
-export abstract class Event extends FlowElement {
+abstract class CatchEvent extends FlowElement {
   isContinuous: boolean = false;
   isInterrupting: boolean = false;
   owner: Element;
 }
 
-export class ConditionalEvent extends Event {
-  condition: Condition;
+abstract class CatchAsyncEvent extends CatchEvent {
+  // TODO reconsider it to move it to CatchEvent
+  // blocks automatic call of proceed() after do(); it is done by event
+  execute(fromElement?: FlowElement): void {
+    this.do();
+  }
+}
 
-  constructor(condition: Condition, id?: string) {
+export class ConditionalEvent extends CatchEvent {
+  condition: ConditionNoParam;
+
+  constructor(condition: ConditionNoParam, id?: string) {
     super(id);
     this.condition = condition;
   }
@@ -46,7 +60,7 @@ export class ConditionalEvent extends Event {
 }
 
 // TODO fix: date shouldnot be taken from time of specifying the model, but from time when this element is executed; use function
-export class TimeEvent extends Event {
+export class TimeEvent extends CatchEvent {
   protected date: number;
   protected period?: number;
 
@@ -76,11 +90,49 @@ export class TimeEvent extends Event {
   }
 }
 
-// TODO implement ReceiveSignalEvent
-export class ReceiveSignalEvent extends Event {}
+export class ThrowSignalEvent extends FlowElement {
+  signalProperties: SignalProperties;
 
-/* IDEA think about eventErrorThrow (also fails plans), eventErrorCatch((error:any)=>boolean, (error:any) => void),
-eventSignalThrow, eventSignalCatch((signal: any) => boolean, (signal:any) => void) */
+  constructor(properties: SignalProperties, id?: string) {
+    super(id);
+    this.signalProperties = properties;
+  }
+
+  protected do(): Promise<void> {
+    return new Promise((resolve) => {
+      new Signal(this.signalProperties).send();
+      resolve();
+    });
+  }
+}
+
+export class CatchSignalEvent extends CatchAsyncEvent {
+  signalReceiverProperties: SignalReceiverProperties;
+
+  constructor(properties: SignalReceiverProperties, id?: string) {
+    super(id);
+    this.signalReceiverProperties = Object.assign({}, properties);
+    this.signalReceiverProperties.receiveAction = (signal: Signal) => {
+      if (properties.receiveAction) {
+        properties.receiveAction(signal);
+      }
+      this.proceed();
+    };
+  }
+
+  protected do(): Promise<void> {
+    return new Promise((resolve) => {
+      getSignalService().registerReceiver(
+        new SignalReceiver(this.signalReceiverProperties)
+      );
+      resolve();
+    });
+  }
+}
+
+/* IDEA think about eventErrorThrow (also fails plans),
+ * eventErrorCatch(filter: Condition<any>, action: Action<any>),
+ * eventSignalThrow, eventSignalCatch(filter: Condition<any>, action: Action<any>)) */
 
 export class EndEvent extends FlowElement {
   // do not proceed
@@ -165,10 +217,10 @@ export class ExclusiveGateway extends FlowElement {
 }
 
 export class Guard extends FlowElement {
-  private condition: Condition;
+  private condition: ConditionNoParam;
   isDefault: boolean;
 
-  constructor(condition?: Condition) {
+  constructor(condition?: ConditionNoParam) {
     super();
     this.condition = condition;
     this.isDefault = !condition;
@@ -217,18 +269,18 @@ export enum LoopingType {
 export abstract class Activity extends FlowElement {
   // looping properties
   protected loopingType: LoopingType;
-  protected loopCondition: Condition;
+  protected loopCondition: ConditionNoParam;
   protected loopTest: LoopTest;
-  protected loopMax: number;
-  protected multiItems: any[];
-  protected multiOnIteration: (item: any) => void;
+  protected loopMax: Flexible<number>;
+  protected multiItems: Flexible<any[]>;
+  protected multiOnIteration: Action<any>;
   protected multiType?: MultiType;
-  protected boundaryEvents: Event[] = [];
+  protected boundaryEvents: CatchEvent[] = [];
 
   setLooping(
-    loopCondition?: Condition,
+    loopCondition?: ConditionNoParam,
     loopTest?: LoopTest,
-    loopMax?: number
+    loopMax?: Flexible<number>
   ): void {
     this.loopingType = LoopingType.STANDARD;
     this.loopCondition = loopCondition ?? (() => true);
@@ -237,8 +289,8 @@ export abstract class Activity extends FlowElement {
   }
 
   setMultiinstance(
-    items: any[],
-    onIteration?: (item: any) => void,
+    items: Flexible<any[]>,
+    onIteration?: Action<any>,
     multiType?: MultiType
   ) {
     this.loopingType = LoopingType.MULTIINSTANCE;
@@ -247,7 +299,7 @@ export abstract class Activity extends FlowElement {
     this.multiType = multiType ?? MultiType.PARALLEL;
   }
 
-  addBoundaryEvent(event: Event) {
+  addBoundaryEvent(event: CatchEvent) {
     this.boundaryEvents.push(event);
   }
 
@@ -255,7 +307,7 @@ export abstract class Activity extends FlowElement {
     // looping
     switch (this.loopingType) {
       case LoopingType.STANDARD:
-        let iterator = this.loopMax;
+        let iterator = getValueOfFlexible(this.loopMax);
 
         if (this.loopTest === LoopTest.BEFORE) {
           while ((!this.loopMax || iterator-- > 0) && this.loopCondition()) {
@@ -274,7 +326,7 @@ export abstract class Activity extends FlowElement {
       case LoopingType.MULTIINSTANCE:
         switch (this.multiType) {
           case MultiType.PARALLEL:
-            this.multiItems.forEach((item) => {
+            getValueOfFlexible(this.multiItems).forEach((item) => {
               this.multiOnIteration(item);
               super.execute(fromElement, false);
             });
@@ -321,8 +373,8 @@ export class BpmnModel extends FlowModel {
   addNext(element: FlowElement) {
     // setting boundary event
     if (BUILD_BPMN.isBoundary) {
-      if (element instanceof Event) {
-        const event: Event = element as Event;
+      if (element instanceof CatchEvent) {
+        const event: CatchEvent = element as CatchEvent;
 
         event.isContinuous = true;
         event.isInterrupting = BUILD_BPMN.isBoundaryInterrupting;
@@ -347,9 +399,9 @@ export class EventProcessModel extends BpmnModel {
   add(element: FlowElement): void {
     if (!this.findElement) {
       // first element must be event
-      if (element instanceof Event) {
+      if (element instanceof CatchEvent) {
         // first element is continuous
-        (element as Event).isContinuous = true;
+        (element as CatchEvent).isContinuous = true;
       } else {
         throw new Error('First element of event sub-process must be event');
       }
@@ -384,18 +436,20 @@ export const BUILD_BPMN = new BpmnBuildStatus();
 @Singleton
 export class BpmnBuilder extends FlowBuilder {
   /**
-   * Adds conditional event.
+   * Create conditional event.
    * @param condition condition which triggers the event
    */
-  eventConditional(condition: Condition, id?: string): BpmnBuilder {
+  eventConditional(condition: ConditionNoParam, id?: string): BpmnBuilder {
     BUILD_BPMN.addNextElement(new ConditionalEvent(condition, id));
     return this;
   }
 
+  // TODO make parameters flexible; reconsider timer parameters
   /**
-   * Adds Time Event.
+   * Create Catch Time Event.
    * @param date
    * @param period
+   * @param id event identifier
    */
   eventTime(date: number, period?: number, id?: string): BpmnBuilder {
     BUILD_BPMN.addNextElement(new TimeEvent(date, period, id));
@@ -403,10 +457,38 @@ export class BpmnBuilder extends FlowBuilder {
   }
 
   /**
-   * Adds Simple End Event.
+   * Create Throw Signal Event.
+   * @param signalProperties signal properties
+   * @param id event identifier
    */
-  eventEnd(id?: string): BpmnBuilder {
-    BUILD_BPMN.addNextElement(new EndEvent(id));
+  eventThrowSignal(
+    signalProperties: SignalProperties,
+    id?: string
+  ): BpmnBuilder {
+    BUILD_BPMN.addNextElement(new ThrowSignalEvent(signalProperties, id));
+    return this;
+  }
+
+  /**
+   * Create Catch Signal Event.
+   * @param signalReceiverProperties
+   * @param id
+   */
+  eventCatchSignal(
+    signalReceiverProperties: SignalReceiverProperties,
+    id?: string
+  ): BpmnBuilder {
+    BUILD_BPMN.addNextElement(
+      new CatchSignalEvent(signalReceiverProperties, id)
+    );
+    return this;
+  }
+
+  /**
+   * Create Simple End Event.
+   */
+  eventEnd(): BpmnBuilder {
+    BUILD_BPMN.addNextElement(new EndEvent());
     return this;
   }
 
@@ -432,7 +514,7 @@ export class BpmnBuilder extends FlowBuilder {
    * Adds guard condition for a flow coming from Exclusive Gateway.
    * @param condition guard condition
    */
-  guard(condition: Condition): BpmnBuilder {
+  guard(condition: ConditionNoParam): BpmnBuilder {
     BUILD_BPMN.addNextElement(new Guard(condition));
     return this;
   }
@@ -503,7 +585,11 @@ export class ActivityBuilder extends BpmnBuilder {
    * @param test test condition before or after performing the action
    * @param max maximal number of loops
    */
-  loop(condition?: Condition, test?: LoopTest, max?: number): ActivityBuilder {
+  loop(
+    condition: ConditionNoParam,
+    test?: LoopTest,
+    max?: Flexible<number>
+  ): ActivityBuilder {
     (BUILD_BPMN.getCurrentElement() as Activity).setLooping(
       condition,
       test,
@@ -520,8 +606,8 @@ export class ActivityBuilder extends BpmnBuilder {
    * @param multiType
    */
   multi(
-    items: any[],
-    onIteration?: (item: any) => void,
+    items: Flexible<any[]>,
+    onIteration?: Action<any>,
     multiType?: MultiType
   ): ActivityBuilder {
     (BUILD_BPMN.getCurrentElement() as Activity).setMultiinstance(

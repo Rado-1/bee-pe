@@ -35,6 +35,17 @@ async function main() {
     .done();
 
   // prettier-ignore
+  const throwSignalProcess = bpmn('ThrowSignalProcess')
+    .eventThrowSignal({name: 'signalAAA'})
+    .done();
+
+  // prettier-ignore
+  const catchSignalProcess = bpmn('CatchSignalProcess')
+    .eventCatchSignal({names: ['signalAAA']})
+    .taskLog('event received')
+    .done();
+
+  // prettier-ignore
   const consoleInputProcess = bpmn('ConsoleInputProcess')
     .taskConsoleInput(
       'Enter value of i (number): ',
@@ -43,7 +54,7 @@ async function main() {
     .taskLog(() => 'i = ' + i)
     .moveTo('Question1')
     .taskConsoleInput(
-      'Enter value of j (number): ',
+      () => `Enter value of j, i = ${i} (number): `,
       (val: string) => j = Number(val))
     .taskLog(() => 'j = ' + j)
     .done();
@@ -245,7 +256,10 @@ async function main() {
       .tranDone()
     .done();
 
-  consoleInputProcess.execute();
+  catchSignalProcess.execute();
+  throwSignalProcess.execute();
+
+  //consoleInputProcess.execute();
 
   // await todoModel.execute();
   // await todo1.submit();

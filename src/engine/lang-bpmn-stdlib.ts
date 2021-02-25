@@ -34,7 +34,7 @@ export class ScriptTask extends Activity {
 // Utils for ConsoleInputTask
 
 interface QuestionAction {
-  question: string;
+  question: Flexible<string>;
   action: Action<string>;
 }
 
@@ -57,7 +57,7 @@ function ask(qa: QuestionAction): void {
       });
     }
 
-    rl.question(qa.question, (answer: string) => {
+    rl.question(getValueOfFlexible(qa.question), (answer: string) => {
       qa.action(answer);
       isQaActive = false;
       if (qaQueue.length) {
@@ -86,7 +86,7 @@ export class ConsoleInputTask extends Activity {
     };
   }
 
-  // to block proceeding after do()
+  // blocks proceeding after do()
   execute(fromElement?: FlowElement): void {
     this.do();
   }
@@ -122,7 +122,7 @@ export class TodoTask extends Activity {
     };
   }
 
-  // to block proceeding after do()
+  // blocks proceeding after do()
   execute(fromElement?: FlowElement): void {
     this.do();
   }
@@ -176,8 +176,8 @@ declare module './lang-bpmn' {
      * @param id identifier of task
      */
     taskConsoleInput(
-      question: string,
-      action: (any) => void,
+      question: Flexible<string>,
+      action: Action<string>,
       id?: string
     ): ActivityBuilder;
 
@@ -221,7 +221,7 @@ BpmnBuilder.prototype.taskLog = function (
 };
 
 BpmnBuilder.prototype.taskConsoleInput = function (
-  question: string,
+  question: Flexible<string>,
   action: Action<string>,
   id?: string
 ): ActivityBuilder {

@@ -1,4 +1,11 @@
-import { Action, Singleton, uuid } from './utils';
+import {
+  Action,
+  Condition,
+  Flexible,
+  getValueOfFlexible,
+  Singleton,
+  uuid,
+} from './utils';
 
 /**
  * Runtime status of [[Todo]].
@@ -22,25 +29,25 @@ export interface TodoProperties {
   topic?: string;
   /** Task id of todo. */
   taskId?: string;
-  /** Input data of todo. */
-  input?: any;
+  /** Input data of todo. It is, for instance, case identifier, business
+   * data, human todo can specify performers, etc. */
+  input?: Flexible<any>;
   /** Issue action of todo. */
   issueAction?: Action<Todo>;
-  /** Submit action of todo. */
+  /** An action executed a last step of submit. */
   submitAction?: Action<Todo>;
   /** If true or unspecified, the todo is registered by [[TodoService]].
    * If false, the todo is not registered by TodoService. */
   register?: boolean;
-  /** If true or unspecified, the todo remains in [[TodoService]] also after
-   * submission. If false, the todo is removed from TodoService after
-   * submission. */
+  /** If true, todo remains in [[TodoService]] after submit. If false, the todo
+   * is after submit removed. The default is true. */
   isPersistent?: boolean;
 }
 
 /**
- * Specification of todo filtering. The todos are filtered either by `predicate`
- * (todo is selected if the predicate is true) or by conjunction of other
- * criteria.
+ * Specification of todo filtering. The [[Todo]]s are filtered by conjunction of
+ * criteria. If the criterion is not specified, it is considered as matched;
+ * TodoFilter with all properties unspecified therefore matches any [[Todo]].
  */
 export interface TodoFilter {
   /** Array of possible states. A todo matches if its state is listed here or
@@ -52,32 +59,24 @@ export interface TodoFilter {
   /** Array of possible task identifiers. A todo matches if its toskId is
    * listed here or tasksId is unspecified. */
   taskIds?: string[];
-  /** Matching predicate. A todo matches if the predicate returns true for
-   * todo. */
-  predicate?: (todo: Todo) => boolean;
+  /** Matching condition. A todo matches if the condition returns
+   * true for it. */
+  condition?: Condition<Todo>;
 }
 
 /**
  * Todo representing asynchronous action performed by an executor, for instance,
  * ui, service, external system, etc.
  */
-export class Todo {
+export class Todo implements TodoProperties {
   /** Identifier of todo. It is computed by [[uuid | uuid() function]]. */
   id: string;
-  /** Topic of todo used to determine its kind, owning process, etc. Various
-   * todo executors usually use topic to filter "their" todos. */
   topic: string;
-  /** Identifier of process task which produced todo. */
   taskId: string;
-  /** If true, todo remains in [[TodoService]] after submit. If false, the todo
-   * is after submit removed. */
-  isPersistent: boolean;
-  /** Data used to specify todo input. For instance, case identifier, business
-   * data, human todo can specify performers, etc. */
   input: any;
+  isPersistent: boolean;
   /** Output data specified in submit. */
   output: any;
-  /** An action executed a last step of submit. */
   submitAction: Action<Todo>;
   /** Runtime status of todo. */
   status: TodoStatus;
@@ -90,7 +89,7 @@ export class Todo {
 
     this.topic = properties.topic;
     this.taskId = properties.taskId;
-    this.input = properties.input;
+    this.input = getValueOfFlexible(properties.input);
     this.submitAction = properties.submitAction;
 
     const register = properties.register ?? true;
@@ -126,15 +125,12 @@ export class Todo {
   }
 
   matches(filter: TodoFilter): boolean {
-    if (filter.predicate) {
-      return filter.predicate(this);
-    } else {
-      return (
-        (filter.states ? filter.states.includes(this.status) : true) &&
-        (filter.topics ? filter.topics.includes(this.topic) : true) &&
-        (filter.taskIds ? filter.taskIds.includes(this.taskId) : true)
-      );
-    }
+    return (
+      (filter.states ? filter.states.includes(this.status) : true) &&
+      (filter.topics ? filter.topics.includes(this.topic) : true) &&
+      (filter.taskIds ? filter.taskIds.includes(this.taskId) : true) &&
+      (filter.condition ? filter.condition(this) : true)
+    );
   }
 }
 
@@ -155,15 +151,12 @@ export class TodoService {
   }
 
   removeTodo(todo: Todo): void {
-    this.todos.splice(
-      this.todos.findIndex((td: Todo) => td == todo),
-      1
-    );
+    this.todos.splice(this.todos.findIndex((td: Todo) => td == todo));
   }
 }
 
 /**
- * Returns TodoService singleton.
+ * Returns an instance of TodoService.
  */
 export function getTodoService(): TodoService {
   return new TodoService();

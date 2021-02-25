@@ -54,9 +54,14 @@ export type ActionNoParam = () => void;
 export type Action<T> = (val: T) => void;
 
 /**
- * A non-parametric function returning boolean.
+ * Non-parametric condition.
  */
-export type Condition = () => boolean;
+export type ConditionNoParam = () => boolean;
+
+/**
+ * Condition with single parameter of type T.
+ */
+export type Condition<T> = (input: T) => boolean;
 
 /**
  * Generates a unique identifier, aka. UUID.

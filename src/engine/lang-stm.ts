@@ -6,7 +6,7 @@ import {
   ProcessBuilder,
   ProcessBuildStatus,
 } from './lang-core';
-import { Singleton, ActionNoParam, Condition } from './utils';
+import { Singleton, ActionNoParam, ConditionNoParam } from './utils';
 
 // ========================================================================== //
 // Elements
@@ -51,9 +51,9 @@ export class Region extends Element {
 export abstract class Trigger {}
 
 export class ConditionalTrigger extends Trigger {
-  condition: Condition;
+  condition: ConditionNoParam;
 
-  constructor(cond: Condition) {
+  constructor(cond: ConditionNoParam) {
     super();
     this.condition = cond;
   }
@@ -76,7 +76,7 @@ export class Transition extends Element {
   from: State;
   to: State;
   triggers: Trigger[] = [];
-  guard: Condition;
+  guard: ConditionNoParam;
   action: ActionNoParam;
 
   addTrigger(trigger: Trigger): void {
@@ -288,7 +288,7 @@ export class TransitionBuilder {
    * Specifies the transition's guard condition.
    * @param cond condition
    */
-  guard(cond: Condition): TransitionBuilder {
+  guard(cond: ConditionNoParam): TransitionBuilder {
     (BUILD_STM.getCurrentElement() as Transition).guard = cond;
     return this;
   }
@@ -328,14 +328,17 @@ export class TransitionBuilder {
 // ========================================================================== //
 // Event builders
 
+// TODO reconsider all catch events and functions for sending events - move it to core
+
 /**
  * Conditional event.
  * @param cond condition
  */
-export function conditional(cond: Condition): ConditionalTrigger {
+export function conditional(cond: ConditionNoParam): ConditionalTrigger {
   return new ConditionalTrigger(cond);
 }
 
+// TODO time parameters must be flexible
 /**
  * Time event.
  * @param date date of occurrence
