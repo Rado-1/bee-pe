@@ -1,9 +1,8 @@
 import {
-  Action,
   bpmn,
   BpmnBuilder,
+  BpmnModel,
   conditional,
-  getTodoService,
   goals,
   LoopTest,
   ProcessModel,
@@ -12,13 +11,18 @@ import {
   time,
   Todo,
 } from './engine/lang';
+import * as dayjs from 'dayjs';
+import * as duration from 'dayjs/plugin/duration';
+import { getSignalService, Signal } from './engine/signal.service';
+dayjs.extend(duration);
 
 main();
 
 async function main() {
-  let i = -1;
+  let i = 0;
   let j = -1;
   let todo1, todo2: Todo;
+  let str: string;
 
   // prettier-ignore
   const todoProcess = bpmn('TodoProcess')
@@ -30,19 +34,45 @@ async function main() {
     .taskTodo({
       issueAction: (todo: Todo) => todo2 = todo,
       submitAction: (todo: Todo) => console.log(todo.taskId + ' submitted')
-      }, 'taskBBB')
+      }, 'taskBBB') 
     .taskLog('after')
     .done();
 
   // prettier-ignore
   const throwSignalProcess = bpmn('ThrowSignalProcess')
-    .eventThrowSignal({name: 'signalAAA'})
+    .eventThrowSignal({name: 'signalA'})
+    .taskLog('signal thrown') 
     .done();
 
   // prettier-ignore
   const catchSignalProcess = bpmn('CatchSignalProcess')
-    .eventCatchSignal({names: ['signalAAA']})
-    .taskLog('event received')
+    .eventCatchSignal({
+      name: /signalA|signalB/i,
+      receiveAction: (s:Signal) => str = s.name})
+    .taskLog(() => `signal caught: ${str}`) 
+    .done();
+
+  function catchSignalProcessParam(index: number): BpmnModel {
+    // prettier-ignore
+    return bpmn('CatchSignalProcess')
+      .eventCatchSignal({name: /signalA|signalB/i})
+      .taskLog(`signal caught ${index}`) 
+      .done();
+  }
+
+  // prettier-ignore
+  const timerExample = bpmn('TimerProcess')
+    .taskLog('timer example started - wait 3s')
+    .gatewayParallel('par1')
+      .eventTime(
+        () => dayjs().add(3, 'seconds').valueOf(),
+        dayjs.duration({seconds: 1}).asMilliseconds(),
+        'timer1')
+      .taskLog(() => `tick ${++i}`)
+    .moveTo('par1')
+      .eventTime(dayjs().add(8, 'seconds').valueOf())
+      .taskScript(() => (timerExample as BpmnModel).findElement('timer1').terminate())
+      .taskLog('finish')
     .done();
 
   // prettier-ignore
@@ -79,7 +109,7 @@ async function main() {
     .taskLog('B')
 
     // parallel branch from A with delay
-    .eventTime(Date.now() + 2000)
+    .eventTime(() => dayjs().add(2, 'seconds').valueOf())
     .taskLog('XXX')
     // normal looping
     .taskScript(() => {i++; console.log('C ' + i);})
@@ -256,8 +286,21 @@ async function main() {
       .tranDone()
     .done();
 
-  catchSignalProcess.execute();
-  throwSignalProcess.execute();
+  timerExample.execute();
+
+  // execute the same model multiple times
+  // for (let i = 0; i < 10; i++) {
+  //   catchSignalProcess.execute();
+  // }
+
+  // create and execute multiple different models
+  // tested on 100000 - CPU consumption max 5%
+  // for (let i = 0; i < 10; i++) {
+  //   catchSignalProcessParam(i).execute();
+  // }
+
+  // new Signal({ name: 'signalB' }).send();
+  // throwSignalProcess.execute();
 
   //consoleInputProcess.execute();
 

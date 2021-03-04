@@ -7,6 +7,9 @@ import {
   uuid,
 } from './utils';
 
+// ========================================================================== //
+// Data Types
+
 /**
  * Runtime status of [[Todo]].
  */
@@ -134,6 +137,12 @@ export class Todo implements TodoProperties {
   }
 }
 
+// ========================================================================== //
+// Service
+
+/**
+ * Todo service used to manage [[Todo]]s.
+ */
 @Singleton
 export class TodoService {
   todos: Todo[] = [];

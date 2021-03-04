@@ -1,3 +1,6 @@
+// ========================================================================== //
+// Singleton
+
 /**
  * Singleton pattern.
  * URL: https://trevoratlas.com/posts/how-to-create-a-typescript-singleton-decorator
@@ -28,6 +31,9 @@ export const Singleton = <T extends new (...args: any[]) => any>(type: T) =>
       return target[SINGLETON_KEY];
     },
   });
+
+// ========================================================================== //
+// Types
 
 /**
  * Allows to specify a value or dynamic version specified as a function
@@ -62,6 +68,9 @@ export type ConditionNoParam = () => boolean;
  * Condition with single parameter of type T.
  */
 export type Condition<T> = (input: T) => boolean;
+
+// ========================================================================== //
+// Various functions
 
 /**
  * Generates a unique identifier, aka. UUID.

@@ -51,7 +51,7 @@ export class Region extends Element {
 export abstract class Trigger {}
 
 export class ConditionalTrigger extends Trigger {
-  condition: ConditionNoParam;
+  readonly condition: ConditionNoParam;
 
   constructor(cond: ConditionNoParam) {
     super();
@@ -60,8 +60,8 @@ export class ConditionalTrigger extends Trigger {
 }
 
 export class TimeTrigger extends Trigger {
-  date: number;
-  period: number;
+  readonly date: number;
+  readonly period: number;
 
   constructor(date: number, period?: number) {
     super();

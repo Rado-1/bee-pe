@@ -19,8 +19,20 @@ export class ProcessError extends Error {
 // ========================================================================== //
 // Elements
 
+/**
+ * Execution  status of element.
+ */
+export enum ExecutionStatus {
+  INACTIVE,
+  ACTIVE,
+  DONE_SUCCESS,
+  DONE_FAILURE,
+  INTERRUPTED,
+}
+
 export abstract class Element {
-  id: string;
+  readonly id: string;
+  status: ExecutionStatus = ExecutionStatus.INACTIVE;
 
   constructor(id?: string) {
     this.id = id ? id : uuid();
@@ -30,6 +42,7 @@ export abstract class Element {
    * Executes the element.
    */
   execute(fromElement?: Element): void {
+    this.status = ExecutionStatus.ACTIVE;
     this.onExecute(fromElement);
   }
 
@@ -38,6 +51,13 @@ export abstract class Element {
    * @param fromElement element which requested execution of this element
    */
   protected onExecute(fromElement?: Element): void {}
+
+  /**
+   * Terminates execution of element.
+   */
+  terminate(): void {
+    this.status = ExecutionStatus.INTERRUPTED;
+  }
 }
 
 /**
@@ -69,6 +89,7 @@ export abstract class FlowElement extends Element {
   execute(fromElement?: FlowElement, alsoNext: boolean = true): void {
     super.execute(fromElement);
     this.do().then(() => {
+      this.status = ExecutionStatus.DONE_SUCCESS;
       if (alsoNext) this.proceed();
     });
   }
@@ -88,6 +109,7 @@ export abstract class FlowElement extends Element {
    * Performs specific element's functionality
    */
   protected do(): Promise<void> {
+    this.status = ExecutionStatus.ACTIVE;
     return new Promise((resolve) => resolve());
   }
 }

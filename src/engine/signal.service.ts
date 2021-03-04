@@ -1,3 +1,7 @@
+// IDEA think about usage of node.js Events;
+// is publish-subscribe mechanism accepted? probably yes
+// but can also regexp matching be used?
+
 import {
   Action,
   Condition,
@@ -6,13 +10,19 @@ import {
   Singleton,
 } from './utils';
 
+// ========================================================================== //
+// Data Types
+
 /**
  * Properties of [[Signal]] used for its instantiation.
  */
 export interface SignalProperties {
-  /** Topic of signal. */
+  /** Topic of signal. Topic represent a "communication channel" of which usage
+   * and structuring is application specific. You can also use structured
+   * path-names, such as 'moduleXY#errors'. */
   topic?: Flexible<string>;
-  /** Name of signal. */
+  /** Name of signal. You can use structured signal path-names, such as
+   * 'ordering#order#create'.*/
   name: Flexible<string>;
   /** Data of signal. */
   data?: Flexible<any>;
@@ -27,10 +37,10 @@ export interface SignalProperties {
  * inter-process communication.
  */
 export class Signal implements SignalProperties {
-  topic: string;
-  name: string;
-  data: any;
-  remainsUntilProcessed: boolean;
+  readonly topic: string;
+  readonly name: string;
+  readonly data: any;
+  readonly remainsUntilProcessed: boolean;
   /** True if signal has been processed by at least one receiver. */
   wasProcessed: boolean = false;
 
@@ -49,21 +59,21 @@ export class Signal implements SignalProperties {
 
   matches(receiver: SignalReceiver): boolean {
     return (
-      (receiver.topics ? receiver.topics.includes(this.topic) : true) &&
-      (receiver.names ? receiver.names.includes(this.name) : true) &&
+      (receiver.topic ? receiver.topic.test(this.topic) : true) &&
+      (receiver.name ? receiver.name.test(this.name) : true) &&
       (receiver.filter ? receiver.filter(this) : true)
     );
   }
 }
 
 /**
- * Properties of [[SignalReceive]] used for its instatiation.
+ * Properties of [[SignalReceive]] used for its instantiation.
  */
 export interface SignalReceiverProperties {
-  /** Array of possible signal topics. */
-  topics?: string[];
-  /** Array of possible signal names. */
-  names?: string[];
+  /** Regular expression matching possible signal topics. */
+  topic?: RegExp;
+  /** regular expression matching possible signal names. */
+  name?: RegExp;
   /** Filtering condition of signal. */
   filter?: Condition<Signal>;
   /** Action triggered on receiving matched signal. */
@@ -78,15 +88,15 @@ export interface SignalReceiverProperties {
  * Signal receiver.
  */
 export class SignalReceiver implements SignalReceiverProperties {
-  topics?: string[];
-  names?: string[];
-  filter?: Condition<Signal>;
-  receiveAction: Action<Signal>;
-  isPersistent?: boolean;
+  readonly topic: RegExp;
+  readonly name: RegExp;
+  readonly filter: Condition<Signal>;
+  readonly receiveAction: Action<Signal>;
+  readonly isPersistent?: boolean;
 
   constructor(properties: SignalReceiverProperties) {
-    this.topics = properties.topics;
-    this.names = properties.names;
+    this.topic = properties.topic;
+    this.name = properties.name;
     this.filter = properties.filter;
     this.receiveAction = properties.receiveAction;
     this.isPersistent = properties.isPersistent ?? false;
@@ -94,6 +104,9 @@ export class SignalReceiver implements SignalReceiverProperties {
 
   matches(signal: Signal) {}
 }
+
+// ========================================================================== //
+// Service
 
 /**
  * Register of signal receivers and matching of incoming signals.

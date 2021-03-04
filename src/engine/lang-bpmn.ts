@@ -1,10 +1,11 @@
-// TODO check building model - all things
 // TODO executional semantics for boundary
 // TODO executional semantics for event subprocesses
 // TODO implement activity looping semantics
 // TODO design timers for delay and date+period events
 // TODO implement semantics of conditional event
 // TODO implement eventTerminate()
+/* IDEA think about eventErrorThrow (also fails plans),
+ * eventErrorCatch(filter: Condition<any>, action: Action<any>)*/
 
 import {
   Element,
@@ -38,10 +39,7 @@ abstract class CatchEvent extends FlowElement {
   isContinuous: boolean = false;
   isInterrupting: boolean = false;
   owner: Element;
-}
 
-abstract class CatchAsyncEvent extends CatchEvent {
-  // TODO reconsider it to move it to CatchEvent
   // blocks automatic call of proceed() after do(); it is done by event
   execute(fromElement?: FlowElement): void {
     this.do();
@@ -49,7 +47,7 @@ abstract class CatchAsyncEvent extends CatchEvent {
 }
 
 export class ConditionalEvent extends CatchEvent {
-  condition: ConditionNoParam;
+  readonly condition: ConditionNoParam;
 
   constructor(condition: ConditionNoParam, id?: string) {
     super(id);
@@ -59,39 +57,53 @@ export class ConditionalEvent extends CatchEvent {
   // TODO implement do() - promise waiting for condition
 }
 
-// TODO fix: date shouldnot be taken from time of specifying the model, but from time when this element is executed; use function
-export class TimeEvent extends CatchEvent {
-  protected date: number;
-  protected period?: number;
+export class TimeEvent extends FlowElement {
+  protected readonly date: Flexible<number>;
+  protected readonly period?: Flexible<number>;
+  protected timeout: NodeJS.Timeout;
 
-  constructor(date: number, period?: number, id?: string) {
+  constructor(date: Flexible<number>, period?: Flexible<number>, id?: string) {
     super(id);
     this.date = date;
     this.period = period;
   }
 
   protected do(): Promise<void> {
-    return new Promise((resolve) =>
-      setTimeout(() => {
-        resolve();
-        this.repeat(resolve);
-      }, this.date - Date.now())
-    );
+    const remainingTime = getValueOfFlexible(this.date) - Date.now();
+
+    return new Promise((resolve) => {
+      if (remainingTime > 0) {
+        this.timeout = setTimeout(() => {
+          resolve();
+          this.repeat();
+        }, remainingTime);
+      } else {
+        this.repeat();
+      }
+    });
   }
 
-  // TODO ??? fix: implement with promise ???
-  repeat(resolve: ActionNoParam) {
-    if (this.period) {
-      setTimeout(() => {
-        resolve;
-        this.repeat(resolve);
-      }, this.period);
+  repeat(): void {
+    const period = getValueOfFlexible(this.period);
+    if (period) {
+      this.timeout = setInterval(() => {
+        this.proceed();
+      }, period);
+    }
+  }
+
+  terminate(): void {
+    super.terminate();
+
+    if (this.timeout) {
+      clearTimeout(this.timeout);
+      clearInterval(this.timeout);
     }
   }
 }
 
 export class ThrowSignalEvent extends FlowElement {
-  signalProperties: SignalProperties;
+  readonly signalProperties: SignalProperties;
 
   constructor(properties: SignalProperties, id?: string) {
     super(id);
@@ -106,8 +118,8 @@ export class ThrowSignalEvent extends FlowElement {
   }
 }
 
-export class CatchSignalEvent extends CatchAsyncEvent {
-  signalReceiverProperties: SignalReceiverProperties;
+export class CatchSignalEvent extends CatchEvent {
+  readonly signalReceiverProperties: SignalReceiverProperties;
 
   constructor(properties: SignalReceiverProperties, id?: string) {
     super(id);
@@ -130,14 +142,7 @@ export class CatchSignalEvent extends CatchAsyncEvent {
   }
 }
 
-/* IDEA think about eventErrorThrow (also fails plans),
- * eventErrorCatch(filter: Condition<any>, action: Action<any>),
- * eventSignalThrow, eventSignalCatch(filter: Condition<any>, action: Action<any>)) */
-
-export class EndEvent extends FlowElement {
-  // do not proceed
-  protected proceed(): void {}
-}
+export class EndEvent extends CatchEvent {}
 
 // TODO realize the following idea:
 /**
@@ -217,7 +222,7 @@ export class ExclusiveGateway extends FlowElement {
 }
 
 export class Guard extends FlowElement {
-  private condition: ConditionNoParam;
+  private readonly condition: ConditionNoParam;
   isDefault: boolean;
 
   constructor(condition?: ConditionNoParam) {
@@ -444,14 +449,19 @@ export class BpmnBuilder extends FlowBuilder {
     return this;
   }
 
-  // TODO make parameters flexible; reconsider timer parameters
   /**
-   * Create Catch Time Event.
-   * @param date
-   * @param period
+   * Create Catch Time Event. To conveniently compute values of the date and
+   * period parameters you can use any JS or TS date/time library.
+   * @param date start date expressed in the number of milliseconds since the
+   * Unix Epoch
+   * @param period period in milliseconds
    * @param id event identifier
    */
-  eventTime(date: number, period?: number, id?: string): BpmnBuilder {
+  eventTime(
+    date: Flexible<number>,
+    period?: Flexible<number>,
+    id?: string
+  ): BpmnBuilder {
     BUILD_BPMN.addNextElement(new TimeEvent(date, period, id));
     return this;
   }
